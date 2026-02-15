@@ -1,0 +1,13 @@
+{
+  "name": "psipay",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "client"
+  ],
+  "scripts": {
+    "dev": "node -e \"console.log('Use scripts/dev.ps1 (Windows) or scripts/dev.sh (bash).')\"",
+    "build": "npm -w backend run build && npm -w client run build",
+    "lint": "npm -w backend run lint && npm -w client run lint"
+  }
+}
