@@ -208,6 +208,9 @@ export function Dashboard({ config }: DashboardProps) {
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
     .join(" | ");
 
+  const showProductsChart = category !== "credit-cards" && (!compare || category === "savings");
+  const showCompareChart = category === "mortgages" && Boolean(compare);
+
   return (
     <div style={{ fontFamily: "Georgia, serif", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ margin: 0 }}>Psipay Dashboard</h1>
@@ -274,9 +277,15 @@ export function Dashboard({ config }: DashboardProps) {
         </section>
       )}
 
-      {category !== "credit-cards" && (
+      {showProductsChart && (
         <TrendChart
-          title={compare ? "Trend context for your recommendation" : "Current market snapshot"}
+          title={
+            category === "savings"
+              ? "Savings vs inflation trend"
+              : compare
+                ? "Trend context for your recommendation"
+                : "Current market snapshot"
+          }
           rows={snapshotRows}
           labels={products?.series.map((s) => s.label) ?? []}
           emptyText={loadingProducts ? "Loading snapshot..." : "No snapshot data"}
@@ -290,13 +299,24 @@ export function Dashboard({ config }: DashboardProps) {
         </section>
       )}
 
-      {compare && category !== "credit-cards" && (
+      {showCompareChart && compare && (
         <section style={{ marginTop: 24 }}>
           <TrendChart
             title="Compared options trend"
             rows={compareRows}
             labels={compare.chartSeries.map((s) => s.label)}
           />
+
+          {snapshotRows.length > 0 && (
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: "pointer" }}>Full market snapshot (advanced)</summary>
+              <TrendChart
+                title="Full mortgage market context"
+                rows={snapshotRows}
+                labels={products?.series.map((s) => s.label) ?? []}
+              />
+            </details>
+          )}
         </section>
       )}
 

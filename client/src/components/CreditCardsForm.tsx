@@ -147,7 +147,7 @@ export function CreditCardsForm({
 
       <div style={{ marginTop: 12 }}>
         <button onClick={onSubmit} disabled={disabled}>
-          {disabled ? "Running..." : "Compare + Recommend"}
+          {disabled ? "Analyzing..." : "Analyze & Recommend"}
         </button>
       </div>
     </>
