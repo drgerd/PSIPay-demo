@@ -8,14 +8,16 @@ function pickModel(): string {
 }
 
 function geminiTimeoutMs(): number {
-  const parsed = Number.parseInt(String(process.env.GEMINI_TIMEOUT_MS || "8000"), 10);
-  if (!Number.isFinite(parsed)) return 8000;
+  const defaultTimeout = 20000;
+  const parsed = Number.parseInt(String(process.env.GEMINI_TIMEOUT_MS || String(defaultTimeout)), 10);
+  if (!Number.isFinite(parsed)) return defaultTimeout;
   return Math.max(1000, Math.min(25000, parsed));
 }
 
 function geminiMaxAttempts(): number {
-  const parsed = Number.parseInt(String(process.env.GEMINI_MAX_ATTEMPTS || "1"), 10);
-  if (!Number.isFinite(parsed)) return 1;
+  const defaultAttempts = 2;
+  const parsed = Number.parseInt(String(process.env.GEMINI_MAX_ATTEMPTS || String(defaultAttempts)), 10);
+  if (!Number.isFinite(parsed)) return defaultAttempts;
   return Math.max(1, Math.min(2, parsed));
 }
 

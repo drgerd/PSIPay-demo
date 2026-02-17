@@ -30,7 +30,16 @@ export function InsightsPanel({ recommendation }: InsightsPanelProps) {
         <div style={{ background: "#f3f6f9", borderRadius: 999, padding: "6px 10px" }}>
           Confidence: <strong>{rec.confidence}</strong>
         </div>
+        <div style={{ background: "#f3f6f9", borderRadius: 999, padding: "6px 10px" }}>
+          AI: <strong>{recommendation.ai?.used ? `enabled (${recommendation.ai.model || "model"})` : "fallback"}</strong>
+        </div>
       </div>
+
+      {!recommendation.ai?.used && recommendation.ai?.reason && (
+        <p style={{ margin: "0 0 10px", color: "#6a4f00", background: "#fff9e6", padding: "8px 10px", borderRadius: 8 }}>
+          AI explanation unavailable right now ({recommendation.ai.reason}). Showing deterministic guidance.
+        </p>
+      )}
 
       <p style={{ margin: "0 0 10px" }}>
         <strong>Forecast:</strong> {rec.forecastMessage}

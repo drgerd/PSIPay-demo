@@ -2,6 +2,24 @@ import type { Category, CompareResponse } from "../../types/contracts";
 import { asBool, asNumber, asStringArray } from "../../utils/coerce";
 import type { Criteria } from "./types";
 
+function summarizeChartSeries(compare: CompareResponse): Array<{
+  label: string;
+  latestMonth?: string;
+  latestValuePct?: number;
+  previousMonth?: string;
+  previousValuePct?: number;
+}> {
+  return compare.chartSeries.slice(0, 4).map((series) => {
+    const latest = series.data[series.data.length - 1];
+    const previous = series.data[series.data.length - 2];
+    return {
+      label: series.label,
+      ...(latest ? { latestMonth: latest.month, latestValuePct: latest.value_pct } : {}),
+      ...(previous ? { previousMonth: previous.month, previousValuePct: previous.value_pct } : {}),
+    };
+  });
+}
+
 type NormalizedCreditCardCriteria = {
   monthlySpend: number;
   payInFullMonthly: boolean;
@@ -64,21 +82,24 @@ function buildCreditCardsPrompt(compare: CompareResponse, criteria: Criteria): s
     "Do not decide ranking. Ranking is deterministic and final.",
     "Use only provided numbers and profile. Do not invent data.",
     "Tone: practical and plain language, no financial advice.",
+    "Your output must explicitly reference at least one user profile field and two numeric metrics from the ranking.",
+    "When data is marked stale, mention uncertainty in forecastMessage.",
     "Return JSON only (no markdown).",
     "",
     "Category: credit-cards",
     `UserProfile: ${JSON.stringify(normalized)}`,
     `DeterministicRanking: ${JSON.stringify(ranking)}`,
     `Assumptions: ${JSON.stringify(compare.assumptions)}`,
+    `DataFreshness: ${JSON.stringify({ stale: Boolean(compare.stale), asOf: compare.asOf })}`,
     "",
     "JSON schema:",
     "{",
-    '  "recommendationShort": "1-2 sentence summary aligned with top deterministic type label",',
+    '  "recommendationShort": "1-2 sentence summary aligned with top deterministic type label and user profile",',
     '  "primaryChoice": "must match deterministic top type label",',
     '  "nextBestAlternative": "must match deterministic second type label",',
     '  "confidence": "low|medium|high",',
     '  "forecastMessage": "2-3 sentence scenario note for next 6-12 months",',
-    '  "keyFactors": ["2-4 short bullets tied to profile + ranking numbers"],',
+    '  "keyFactors": ["2-4 short bullets tied to profile + ranking numbers; include explicit numbers"],',
     '  "tradeoffs": ["2-4 short bullets"],',
     '  "whatWouldChange": ["2-4 short bullets including a pay-in-full vs revolving what-if"],',
     '  "actionChecklist": ["2-4 short practical actions"]',
@@ -87,23 +108,35 @@ function buildCreditCardsPrompt(compare: CompareResponse, criteria: Criteria): s
 }
 
 function buildGenericPrompt(category: Category, compare: CompareResponse, criteria: Criteria): string {
+  const topOptions = compare.options.slice(0, 3).map((option) => ({
+    label: option.label,
+    metrics: option.metrics,
+  }));
+  const trendSummary = summarizeChartSeries(compare);
+
   return [
     "You are a UK personal finance decision assistant.",
     "Use ONLY the provided deterministic metrics and trends. Do not invent numbers.",
+    "Do not override deterministic ranking logic.",
+    "Your output must reference at least one user criteria input and two numeric values from deterministic metrics.",
+    "If data is stale, mention uncertainty in forecastMessage.",
     "Return JSON only (no markdown).",
     "",
     `Category: ${category}`,
     `Criteria: ${JSON.stringify(criteria)}`,
-    `CompareData: ${JSON.stringify(compare)}`,
+    `TopDeterministicOptions: ${JSON.stringify(topOptions)}`,
+    `TrendSummary: ${JSON.stringify(trendSummary)}`,
+    `Assumptions: ${JSON.stringify(compare.assumptions)}`,
+    `DataFreshness: ${JSON.stringify({ stale: Boolean(compare.stale), asOf: compare.asOf })}`,
     "",
     "JSON schema:",
     "{",
-    '  "recommendationShort": "1-2 sentence plain-English summary",',
+    '  "recommendationShort": "1-2 sentence plain-English summary tied to criteria",',
     '  "primaryChoice": "string matching an option label",',
     '  "nextBestAlternative": "string matching another option label",',
     '  "confidence": "low|medium|high",',
     '  "forecastMessage": "2-3 sentence scenario-based 6-12 month outlook",',
-    '  "keyFactors": ["2-4 short bullets"],',
+    '  "keyFactors": ["2-4 short bullets including explicit deterministic numbers"],',
     '  "tradeoffs": ["2-4 short bullets"],',
     '  "whatWouldChange": ["2-4 short bullets"],',
     '  "actionChecklist": ["2-4 short action steps for the user"]',

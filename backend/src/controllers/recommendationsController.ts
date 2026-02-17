@@ -6,6 +6,8 @@ type Criteria = Record<string, unknown>;
 
 function publicAiFailureReason(reason: string): string {
   if (reason === "gemini_api_key_missing") return "ai_not_configured";
+  if (reason.startsWith("gemini_timeout_")) return "ai_timeout";
+  if (reason.startsWith("gemini_http_4")) return "ai_request_error";
   return "ai_unavailable";
 }
 

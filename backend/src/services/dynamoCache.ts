@@ -160,13 +160,20 @@ export async function cachedFetchJson<T>(args: {
   try {
     const hit = await cacheGet<T>(cacheKey);
     if (hit.hit) {
+      console.info(JSON.stringify({ event: "cache_hit", cacheKey }));
       return { value: hit.value, stale: false };
     }
+    console.info(JSON.stringify({ event: "cache_miss", cacheKey }));
   } catch (err) {
     // Cache read failures should not break the request.
     if (!_cacheReadWarned) {
       _cacheReadWarned = true;
-      console.warn(`[cache] read failure: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(
+        JSON.stringify({
+          event: "cache_read_failure",
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
     }
   }
 
@@ -178,15 +185,28 @@ export async function cachedFetchJson<T>(args: {
       // Ignore cache write failures.
       if (!_cacheWriteWarned) {
         _cacheWriteWarned = true;
-        console.warn(`[cache] write failure: ${err instanceof Error ? err.message : String(err)}`);
+        console.warn(
+          JSON.stringify({
+            event: "cache_write_failure",
+            error: err instanceof Error ? err.message : String(err),
+          })
+        );
       }
     }
     return { value: fresh, stale: false };
   } catch (err) {
     // Upstream failure: attempt stale fallback.
+    console.warn(
+      JSON.stringify({
+        event: "upstream_fetch_failed",
+        cacheKey,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
     try {
       const hit = await cacheGet<T>(cacheKey);
       if (hit.hit) {
+        console.info(JSON.stringify({ event: "cache_stale_fallback", cacheKey }));
         return { value: hit.value, stale: true };
       }
     } catch {

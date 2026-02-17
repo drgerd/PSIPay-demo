@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AppConfig } from "../api/config";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { CriteriaForm } from "../components/CriteriaForm";
@@ -14,9 +14,10 @@ type DashboardProps = {
   config: AppConfig;
   authToken?: string;
   onLogout?: () => void;
+  onUnauthorized?: () => void;
 };
 
-export function Dashboard({ config, authToken, onLogout }: DashboardProps) {
+export function Dashboard({ config, authToken, onLogout, onUnauthorized }: DashboardProps) {
   const [category, setCategory] = useState<Category>("mortgages");
   const categories = useMemo(() => ["mortgages", "savings", "credit-cards"] as const, []);
   const { criteria, updateCriterion } = useCriteriaState();
@@ -34,6 +35,7 @@ export function Dashboard({ config, authToken, onLogout }: DashboardProps) {
   } = useScenarioData({
     apiBaseUrl: config.apiBaseUrl,
     authToken,
+    onUnauthorized,
     category,
     criteria,
   });
@@ -51,6 +53,20 @@ export function Dashboard({ config, authToken, onLogout }: DashboardProps) {
   const scenarioSummary = Object.entries(criteria[category] || {})
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
     .join(" | ");
+
+  const [thinkingFrame, setThinkingFrame] = useState(0);
+  useEffect(() => {
+    if (!submitting) {
+      setThinkingFrame(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setThinkingFrame((prev) => (prev + 1) % 4);
+    }, 350);
+    return () => clearInterval(timer);
+  }, [submitting]);
+
+  const thinkingDots = ".".repeat(thinkingFrame);
 
   return (
     <div style={{ fontFamily: "Georgia, serif", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
@@ -78,7 +94,7 @@ export function Dashboard({ config, authToken, onLogout }: DashboardProps) {
             borderRadius: 8,
           }}
         >
-          Analyzing your scenario and preparing recommendation...
+          AI is thinking{thinkingDots} We are comparing options and preparing your recommendation.
         </div>
       )}
 

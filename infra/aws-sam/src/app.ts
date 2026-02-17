@@ -5,6 +5,7 @@ import { getProducts } from "../../../backend/src/controllers/productsController
 import { compareOptions } from "../../../backend/src/controllers/compareController";
 import { recommend } from "../../../backend/src/controllers/recommendationsController";
 import type { Category } from "../../../backend/src/types/contracts";
+import { validateCriteriaByCategory } from "../../../backend/src/validation/criteria";
 
 const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
@@ -63,17 +64,33 @@ function readCriteriaFromQuery(event: APIGatewayProxyEvent): Record<string, unkn
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const method = event.httpMethod || "GET";
   const path = event.path || "/";
+  const startedAt = Date.now();
 
-  if (method === "OPTIONS") return withCors({ statusCode: 204, headers: CORS_HEADERS, body: "" });
+  function done(response: APIGatewayProxyResult): APIGatewayProxyResult {
+    const durationMs = Date.now() - startedAt;
+    const status = response.statusCode;
+    console.info(
+      JSON.stringify({
+        event: "request_complete",
+        method,
+        path,
+        status,
+        durationMs,
+      })
+    );
+    return response;
+  }
+
+  if (method === "OPTIONS") return done(withCors({ statusCode: 204, headers: CORS_HEADERS, body: "" }));
 
   try {
     if (method === "GET" && path === "/health") {
-      return withCors(json(200, { ok: true, service: "psipay-api" }));
+      return done(withCors(json(200, { ok: true, service: "psipay-api" })));
     }
 
     if (method === "GET" && path.startsWith("/products/")) {
       const category = decodeURIComponent(path.replace("/products/", ""));
-      if (!isCategory(category)) return errorJson(400, "invalid_category", "Category is invalid.");
+      if (!isCategory(category)) return done(errorJson(400, "invalid_category", "Category is invalid."));
 
       const horizonMonths = readPositiveIntQueryParam(event, "horizonMonths", 1, 360);
 
@@ -87,40 +104,60 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           months: horizonMonths,
         }
       );
-      return withCors(json(200, data));
+      return done(withCors(json(200, data)));
     }
 
     if (method === "POST" && path === "/compare") {
       const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
-      if (!isCategory(body.category)) return errorJson(400, "invalid_category", "Category is invalid.");
+      if (!isCategory(body.category)) return done(errorJson(400, "invalid_category", "Category is invalid."));
+
+      const validation = validateCriteriaByCategory(body.category, body.criteria || {});
+      if (!validation.ok) return done(errorJson(400, validation.errorCode, validation.message));
 
       const data = await compareOptions(body.category, body.criteria || {});
-      return withCors(json(200, data));
+      return done(withCors(json(200, data)));
     }
 
     if (method === "POST" && path === "/recommendations") {
       const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
-      if (!isCategory(body.category)) return errorJson(400, "invalid_category", "Category is invalid.");
+      if (!isCategory(body.category)) return done(errorJson(400, "invalid_category", "Category is invalid."));
+
+      const validation = validateCriteriaByCategory(body.category, body.criteria || {});
+      if (!validation.ok) return done(errorJson(400, validation.errorCode, validation.message));
 
       const data = await recommend(body.category, body.criteria || {});
-      return withCors(json(200, data));
+      return done(withCors(json(200, data)));
     }
 
     if (method === "GET" && path === "/recommendations") {
       const category = event.queryStringParameters?.category;
-      if (!isCategory(category)) return errorJson(400, "invalid_category", "Category is required.");
+      if (!isCategory(category)) return done(errorJson(400, "invalid_category", "Category is required."));
 
       const criteria = readCriteriaFromQuery(event);
+      const validation = validateCriteriaByCategory(category, criteria);
+      if (!validation.ok) return done(errorJson(400, validation.errorCode, validation.message));
+
       const data = await recommend(category, criteria);
-      return withCors(json(200, data));
+      return done(withCors(json(200, data)));
     }
 
-    return errorJson(404, "not_found", "Route not found.");
+    return done(errorJson(404, "not_found", "Route not found."));
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown_error";
+    console.error(
+      JSON.stringify({
+        event: "request_failed",
+        method,
+        path,
+        message,
+      })
+    );
     if (message === "invalid_criteria_query_json") {
-      return errorJson(400, "invalid_criteria", "Query parameter 'criteria' must be valid JSON.");
+      return done(errorJson(400, "invalid_criteria", "Query parameter 'criteria' must be valid JSON."));
     }
-    return errorJson(500, "internal_error", "Request failed.");
+    if (message === "missing_body") {
+      return done(errorJson(400, "missing_body", "Request body is required."));
+    }
+    return done(errorJson(500, "internal_error", "Request failed."));
   }
 }

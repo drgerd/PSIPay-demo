@@ -95,7 +95,7 @@ export async function fetchBoeSeries(
     cacheKey: `boe:${url}`,
     ttlSeconds: 24 * 60 * 60,
     fetchFresh: async () => {
-      const res = await fetchWithRetry(url);
+      const res = await fetchWithRetry(url, undefined, { requestName: "boe_series_fetch" });
       if (!res.ok) throw new Error(`boe_fetch_failed:${res.status}`);
 
       const csv = await res.text();

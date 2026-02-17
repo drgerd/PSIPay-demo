@@ -77,6 +77,8 @@ bash scripts/dev-sam.sh
 ```
 
 Optional local env vars can be placed in `scripts/env.local` (gitignored).
+To enable Gemini explanations locally, set `GEMINI_API_KEY` in `scripts/env.local` before running `dev-sam.sh`.
+`dev-sam.sh` prints whether the key was detected for local SAM startup.
 
 ## Unit Tests
 
@@ -293,7 +295,26 @@ Example response (shape):
 Notes:
 - If Gemini is configured and responsive, `ai.used=true` and `ai.model` is set.
 - If Gemini is missing/slow/unavailable, the API returns a deterministic fallback.
+- Gemini is explanation-only: deterministic ranking/metrics remain source-of-truth; no invented numbers are allowed.
 - `/health` is intentionally public; all other API routes require a Cognito JWT.
+
+### Get Cognito IdToken For CLI Tests
+
+```bash
+ID_TOKEN=$(aws cognito-idp initiate-auth \
+  --region eu-central-1 \
+  --client-id <cognito-app-client-id> \
+  --auth-flow USER_PASSWORD_AUTH \
+  --auth-parameters USERNAME="psipay_user",PASSWORD="psipay!12345678" \
+  --query 'AuthenticationResult.IdToken' --output text)
+```
+
+Then call protected endpoints:
+
+```bash
+curl -s "<api-base-url>/products/mortgages?horizonMonths=12" \
+  -H "Authorization: Bearer ${ID_TOKEN}"
+```
 
 ## Leadership & Architecture
 

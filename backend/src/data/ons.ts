@@ -66,7 +66,7 @@ export async function fetchOnsCpihYoY(options?: {
     cacheKey: `ons:${url}`,
     ttlSeconds: 7 * 24 * 60 * 60,
     fetchFresh: async () => {
-      const res = await fetchWithRetry(url);
+      const res = await fetchWithRetry(url, undefined, { requestName: "ons_cpih_fetch" });
       if (!res.ok) throw new Error(`ons_fetch_failed:${res.status}`);
 
       const payload = (await res.json()) as { observations?: OnsObservation[] };
