@@ -1,5 +1,6 @@
 import type { SeriesItem, SeriesPoint } from "../types/contracts";
 import { cachedFetchJson } from "../services/dynamoCache";
+import { fetchWithRetry } from "./fetch-with-retry";
 
 const BOE_LABELS: Record<string, string> = {
   IUMBV34: "2y fixed",
@@ -94,7 +95,7 @@ export async function fetchBoeSeries(
     cacheKey: `boe:${url}`,
     ttlSeconds: 24 * 60 * 60,
     fetchFresh: async () => {
-      const res = await fetch(url);
+      const res = await fetchWithRetry(url);
       if (!res.ok) throw new Error(`boe_fetch_failed:${res.status}`);
 
       const csv = await res.text();

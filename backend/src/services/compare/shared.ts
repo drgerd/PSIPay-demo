@@ -1,37 +1,8 @@
 import type { ProductsResponse, SeriesItem, SeriesPoint } from "../../types/contracts";
+import { asBool, asNumber, asStringArray } from "../../utils/coerce";
 
 export type Criteria = Record<string, unknown>;
-
-export function asNumber(v: unknown, fallback: number): number {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
-    const n = Number.parseFloat(v);
-    if (Number.isFinite(n)) return n;
-  }
-  return fallback;
-}
-
-export function asBool(v: unknown, fallback: boolean): boolean {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "number") return v !== 0;
-  if (typeof v === "string") {
-    const normalized = v.trim().toLowerCase();
-    if (["true", "yes", "y", "1"].includes(normalized)) return true;
-    if (["false", "no", "n", "0"].includes(normalized)) return false;
-  }
-  return fallback;
-}
-
-export function asStringArray(v: unknown): string[] {
-  if (Array.isArray(v)) return v.map((item) => String(item)).filter(Boolean);
-  if (typeof v === "string") {
-    return v
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
+export { asBool, asNumber, asStringArray };
 
 export function historyMonthsFromCriteria(criteria: Criteria): number {
   const fallback = Number(process.env.DEFAULT_HISTORY_MONTHS || "12");

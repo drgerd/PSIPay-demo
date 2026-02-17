@@ -59,9 +59,22 @@ Delete deployed stack/resources:
 bash scripts/destroy.sh --stack psipay
 ```
 
-### “Single Test” / Minimal Verification
+### Tests / Minimal Verification
 
-There is no automated test runner configured right now. Use smoke calls:
+Run automated unit tests:
+
+```bash
+npm test
+```
+
+Or per workspace:
+
+```bash
+npm -w backend run test
+npm -w client run test
+```
+
+Smoke calls:
 
 ```bash
 curl -s http://127.0.0.1:3000/health
@@ -85,14 +98,13 @@ node -e "fetch('http://127.0.0.1:3000/health').then(r=>r.json()).then(console.lo
 - `backend/src/data/*`: external API clients (BoE/ONS).
 - `backend/src/services/*`: business logic, caching, comparisons, Gemini.
 - `client/src/pages/Dashboard.tsx`: UI flow for all 3 scenarios.
-- `client/src/components/DeveloperDiagnostics.tsx`: debug panel (collapsed).
 
 ## API Conventions
 
 - History window:
   - products: `GET /products/{category}?horizonMonths=12`
   - compare/recommend: uses `criteria.horizonMonths`.
-- Error responses from Lambda use `{ errorCode, message, details? }`.
+- Error responses from Lambda use `{ errorCode, message }`.
 
 ## Coding Standards
 
@@ -132,12 +144,10 @@ Order:
 - Deterministic engine decides ranking.
 - Gemini may only *explain* the deterministic output.
 - Never invent numbers; prompt includes deterministic outputs.
-- Temporary debug visibility: `recommendation.ai.debug` contains prompt/response/errors and is shown in Developer Diagnostics.
 
 ### Frontend UX
 
 - Show user-facing recommendation first.
-- Keep `DeveloperDiagnostics` collapsed by default.
 - For `credit-cards`, do not show irrelevant trend charts.
 
 ### Secrets

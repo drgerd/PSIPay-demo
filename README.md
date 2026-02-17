@@ -2,6 +2,11 @@
 
 Serverless UK financial products comparison platform.
 
+Supports 3 scenarios:
+- Mortgages: fixed vs variable context and cost estimates.
+- Savings: compare savings rates to inflation.
+- Credit cards: recommend a card type based on spending and payment behavior.
+
 Monorepo:
 - `backend/` shared TypeScript business/data logic used by Lambda handlers
 - `client/` Vite SPA (local dev + deploy to S3)
@@ -21,6 +26,43 @@ Default deployment settings:
 - Stack name: `psipay`
 - Resource tag: `psipay=true`
 
+## Architecture
+
+```text
+                      +---------------------------+
+                      |     Browser (SPA UI)     |
+                      |  S3 Static Website Host  |
+                      +-------------+-------------+
+                                    |
+                                    | HTTPS (REST)
+                                    v
+                      +-------------+-------------+
+                      |     API Gateway (REST)   |
+                      +-------------+-------------+
+                                    |
+                                    v
+                      +-------------+-------------+
+                      |   Lambda (Node.js/TS)     |
+                      |  /health /products        |
+                      |  /compare /recommendations|
+                      +------+------+-------------+
+                             |     |
+            read-through cache|     | outbound calls (max 2 retries)
+                             |     v
+                             |  +------------------------------+
+                             |  | External APIs                |
+                             |  | - Bank of England (BoE CSV)  |
+                             |  | - ONS CPIH (JSON)            |
+                             |  | - Gemini API (optional)      |
+                             |  +------------------------------+
+                             v
+                 +------------------------+
+                 | DynamoDB (TTL Cache)  |
+                 +------------------------+
+
+                CloudWatch Logs (Lambda log group)
+```
+
 ## Local Development
 
 Start full local stack (SAM local API + DynamoDB Local + Vite):
@@ -30,6 +72,46 @@ bash scripts/dev-sam.sh
 ```
 
 Optional local env vars can be placed in `scripts/env.local` (gitignored).
+
+## Unit Tests
+
+Install dependencies:
+
+```bash
+npm install --no-bin-links
+```
+
+Run all tests:
+
+```bash
+npm test
+```
+
+Run tests by workspace:
+
+```bash
+npm -w backend run test
+npm -w client run test
+```
+
+## Environment Variables
+
+Local-only (use `scripts/env.local` or your shell; do not commit secrets):
+
+- `GEMINI_API_KEY` (optional) enables AI explanations in `/recommendations`.
+- `GEMINI_MODEL` (optional) defaults to `gemini-flash-latest`.
+- `GEMINI_TIMEOUT_MS` (optional) defaults to `8000`.
+- `GEMINI_MAX_ATTEMPTS` (optional) defaults to `1` (max `2`).
+
+Provided by SAM/Lambda runtime (you do not need to set manually when deployed):
+
+- `CACHE_TABLE_NAME` (DynamoDB table name)
+- `DEFAULT_HISTORY_MONTHS` (defaults to `12`)
+- `ONS_CPIH_VERSION` (defaults to `66`)
+
+Local SAM + DynamoDB Local:
+
+- `scripts/dev-sam.sh` injects a container-safe DynamoDB endpoint and dummy AWS credentials for DynamoDB Local.
 
 ## Create Infrastructure + Deploy App
 
@@ -78,6 +160,119 @@ curl -s -X POST <api-base-url>/compare \
   -d '{"category":"mortgages","criteria":{"loanAmount":200000,"horizonMonths":24}}'
 ```
 
+## API
+
+Base URL (deployed): `https://<restApiId>.execute-api.eu-central-1.amazonaws.com/Prod`
+
+### GET `/health`
+
+```bash
+curl -s <api-base-url>/health
+```
+
+Example response:
+
+```json
+{ "ok": true, "service": "psipay-api" }
+```
+
+### GET `/products/{category}`
+
+```bash
+curl -s "<api-base-url>/products/mortgages?horizonMonths=12"
+```
+
+Example response (shape):
+
+```json
+{
+  "category": "mortgages",
+  "stale": false,
+  "series": [
+    {
+      "seriesCode": "IUMBV34",
+      "label": "2y fixed",
+      "unit": "percent",
+      "asOf": "2026-02-16T23:31:10.595Z",
+      "data": [{ "month": "2026-01", "value_pct": 3.91 }]
+    }
+  ]
+}
+```
+
+### POST `/compare`
+
+```bash
+curl -s -X POST <api-base-url>/compare \
+  -H 'content-type: application/json' \
+  -d '{"category":"savings","criteria":{"deposit":10000,"horizonMonths":12}}'
+```
+
+Example response (shape):
+
+```json
+{
+  "category": "savings",
+  "stale": false,
+  "asOf": { "CFMHSCV": "2026-02-16T23:31:10.595Z", "CPIH_YOY": "2026-02-16T23:31:10.595Z" },
+  "assumptions": ["Real rate is approximated as nominal minus CPIH YoY"],
+  "options": [
+    {
+      "id": "market-average-sight-deposit",
+      "label": "Market-average sight deposit",
+      "rate_pct": 3.5,
+      "metrics": {
+        "inflation_yoy_pct": 2.6,
+        "real_rate_pct": 0.9,
+        "projected_balance_est": 10355.12
+      }
+    }
+  ],
+  "chartSeries": [
+    {
+      "seriesCode": "CFMHSCV",
+      "label": "sight deposits",
+      "unit": "percent",
+      "asOf": "2026-02-16T23:31:10.595Z",
+      "data": [{ "month": "2026-01", "value_pct": 3.5 }]
+    }
+  ]
+}
+```
+
+### POST `/recommendations`
+
+```bash
+curl -s -X POST <api-base-url>/recommendations \
+  -H 'content-type: application/json' \
+  -d '{"category":"mortgages","criteria":{"loanAmount":200000,"horizonMonths":24,"riskTolerance":"prefer-certainty"}}'
+```
+
+Example response (shape):
+
+```json
+{
+  "category": "mortgages",
+  "recommendationShort": "Based on the latest market data, 2y fixed is currently the strongest fit.",
+  "recommendation": {
+    "primaryChoice": "2y fixed",
+    "nextBestAlternative": "5y fixed",
+    "confidence": "medium",
+    "forecastMessage": "If the base rate stays elevated over the next 6-12 months, fixed options are likely to remain more predictable for monthly budgeting.",
+    "keyFactors": ["Based on latest available BoE/ONS series"],
+    "tradeoffs": ["Figures are estimates and not provider-specific offers"],
+    "whatWouldChange": ["Different user preferences or time horizon"],
+    "actionChecklist": ["Review the top two options side by side in the comparison table"]
+  },
+  "ai": { "used": false, "fallback": true, "reason": "ai_unavailable" },
+  "compare": { "category": "mortgages", "options": [], "chartSeries": [], "assumptions": [], "asOf": {} }
+}
+```
+
+Notes:
+- If Gemini is configured and responsive, `ai.used=true` and `ai.model` is set.
+- If Gemini is missing/slow/unavailable, the API returns a deterministic fallback.
+
 ## Notes
 
 - `scripts/env.local` is for local-only values and is not committed.
@@ -87,4 +282,3 @@ curl -s -X POST <api-base-url>/compare \
 Docs:
 - Data pipeline rules: `docs/Skills-DataSources.md`
 - API shapes: `docs/API-Contracts.md`
-- OpenCode Chrome MCP debug: `docs/OpenCode-Chrome-Debug.md`

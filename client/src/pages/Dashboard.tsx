@@ -3,7 +3,6 @@ import type { AppConfig } from "../api/config";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { CriteriaForm } from "../components/CriteriaForm";
 import { CreditCardsForm } from "../components/CreditCardsForm";
-import { DeveloperDiagnostics } from "../components/DeveloperDiagnostics";
 import { InsightsPanel } from "../components/InsightsPanel";
 import { TrendChart } from "../components/TrendChart";
 import { useCriteriaState } from "../hooks/use-criteria-state";
@@ -27,7 +26,6 @@ export function Dashboard({ config }: DashboardProps) {
     loadingProducts,
     submitting,
     error,
-    requestLog,
     snapshotRows,
     compareRows,
     submitCompareAndRecommend,
@@ -168,15 +166,6 @@ export function Dashboard({ config }: DashboardProps) {
         </section>
       )}
 
-      <DeveloperDiagnostics
-        apiBaseUrl={config.apiBaseUrl}
-        category={category}
-        criteria={criteria[category]}
-        products={safeProducts}
-        compare={compare}
-        recommendation={recommendation}
-        requestLog={requestLog}
-      />
     </div>
   );
 }

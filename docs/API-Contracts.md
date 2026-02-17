@@ -96,7 +96,10 @@ Response (shape):
   ],
   "chartSeries": [
     {
+      "seriesCode": "IUMBV34",
       "label": "2y fixed",
+      "unit": "percent",
+      "asOf": "2026-02-15T10:00:00Z",
       "data": [{ "month": "2025-03", "value_pct": 4.85 }]
     }
   ]
@@ -109,7 +112,7 @@ Supports both:
 - `POST /recommendations` with body (same as `/compare`)
 - `GET /recommendations?category=<category>&criteria=<url-encoded-json>`
 
-Response: deterministic compare output + AI payload.
+Response: deterministic compare output + AI payload (no debug data returned).
 
 ```json
 {
@@ -139,3 +142,9 @@ Response: deterministic compare output + AI payload.
 ## 4) GET `/health`
 
 Simple API health check.
+
+Example:
+
+```json
+{ "ok": true, "service": "psipay-api" }
+```

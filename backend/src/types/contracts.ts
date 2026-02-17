@@ -27,7 +27,10 @@ export type CompareOption = {
 };
 
 export type CompareChartSeries = {
+  seriesCode: string;
   label: string;
+  unit: "percent";
+  asOf: string;
   data: SeriesPoint[];
 };
 
@@ -60,12 +63,6 @@ export type RecommendationsResponse = {
     fallback: boolean;
     model?: string;
     reason?: string;
-    debug?: {
-      requestPrompt?: string;
-      rawResponse?: string;
-      parsedResponse?: Record<string, unknown>;
-      errors?: string[];
-    };
   };
   compare: CompareResponse;
 };

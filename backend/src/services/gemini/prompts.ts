@@ -1,4 +1,5 @@
 import type { Category, CompareResponse } from "../../types/contracts";
+import { asBool, asNumber, asStringArray } from "../../utils/coerce";
 import type { Criteria } from "./types";
 
 type NormalizedCreditCardCriteria = {
@@ -9,31 +10,6 @@ type NormalizedCreditCardCriteria = {
   topCategories: string[];
   primaryGoal: string;
 };
-
-function asNumber(value: unknown, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
-
-function asBool(value: unknown, fallback: boolean): boolean {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "yes", "1", "y"].includes(normalized)) return true;
-    if (["false", "no", "0", "n"].includes(normalized)) return false;
-  }
-  if (typeof value === "number") return value !== 0;
-  return fallback;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((v) => String(v).trim()).filter(Boolean);
-}
 
 function normalizeCreditCardCriteria(criteria: Criteria): NormalizedCreditCardCriteria {
   const allowedCategories = new Set([

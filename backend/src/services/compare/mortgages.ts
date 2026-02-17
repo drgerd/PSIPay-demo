@@ -72,6 +72,12 @@ export function buildMortgageCompare(products: ProductsResponse, criteria: Crite
     chartSeries: ["IUMBV34", "IUMBV42", "IUMTLMV"]
       .map((code) => seriesByCode.get(code))
       .filter((s): s is SeriesItem => Boolean(s))
-      .map((s) => ({ label: s.label, data: s.data })),
+      .map((s) => ({
+        seriesCode: s.seriesCode,
+        label: s.label,
+        unit: s.unit,
+        asOf: s.asOf,
+        data: s.data,
+      })),
   };
 }

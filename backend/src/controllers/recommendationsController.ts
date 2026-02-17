@@ -4,6 +4,11 @@ import { generateGeminiRecommendation } from "../services/geminiService";
 
 type Criteria = Record<string, unknown>;
 
+function publicAiFailureReason(reason: string): string {
+  if (reason === "gemini_api_key_missing") return "ai_not_configured";
+  return "ai_unavailable";
+}
+
 export async function recommend(
   category: Category,
   criteria: Criteria
@@ -18,8 +23,7 @@ export async function recommend(
       ai: {
         used: false,
         fallback: true,
-        reason: ai.reason,
-        debug: ai.debug,
+        reason: publicAiFailureReason(ai.reason),
       },
     };
   }
@@ -54,7 +58,6 @@ export async function recommend(
       used: true,
       fallback: false,
       model: ai.model,
-      debug: ai.debug,
     },
   };
 }

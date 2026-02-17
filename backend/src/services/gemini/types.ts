@@ -14,15 +14,8 @@ export type GeminiRecommendation = {
   actionChecklist: string[];
 };
 
-export type GeminiDebug = {
-  requestPrompt: string;
-  rawResponse?: string;
-  parsedResponse?: Record<string, unknown>;
-  errors?: string[];
-};
-
 export type GeminiResult =
-  | { ok: true; value: GeminiRecommendation; model: string; debug: GeminiDebug }
-  | { ok: false; reason: string; debug: GeminiDebug };
+  | { ok: true; value: GeminiRecommendation; model: string }
+  | { ok: false; reason: string };
 
 export type BuildPrompt = (category: Category, compare: CompareResponse, criteria: Criteria) => string;

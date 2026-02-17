@@ -1,9 +1,5 @@
 import type { GeminiRecommendation } from "./types";
 
-function toText(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value);
-}
-
 function asConfidence(value: unknown): "low" | "medium" | "high" {
   const v = String(value || "").toLowerCase();
   if (v === "low" || v === "high") return v;
@@ -34,11 +30,8 @@ export function parseGeminiJson(text: string): unknown {
   throw new Error("gemini_non_json_response");
 }
 
-export function parseAndNormalizeRecommendation(rawText: string): {
-  parsed: Record<string, unknown> | undefined;
-  normalized: GeminiRecommendation;
-} {
-  const parsed = parseGeminiJson(toText(rawText));
+export function parseAndNormalizeRecommendation(rawText: string): GeminiRecommendation {
+  const parsed = parseGeminiJson(rawText);
   const obj = (parsed || {}) as Record<string, unknown>;
   const recommendationShort = String(obj.recommendationShort || "").trim();
   const primaryChoice = String(obj.primaryChoice || "").trim();
@@ -54,17 +47,14 @@ export function parseAndNormalizeRecommendation(rawText: string): {
   }
 
   return {
-    parsed: parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : undefined,
-    normalized: {
-      recommendationShort,
-      primaryChoice,
-      nextBestAlternative: nextBestAlternative || primaryChoice,
-      confidence: asConfidence(obj.confidence),
-      forecastMessage,
-      keyFactors,
-      tradeoffs,
-      whatWouldChange,
-      actionChecklist,
-    },
+    recommendationShort,
+    primaryChoice,
+    nextBestAlternative: nextBestAlternative || primaryChoice,
+    confidence: asConfidence(obj.confidence),
+    forecastMessage,
+    keyFactors,
+    tradeoffs,
+    whatWouldChange,
+    actionChecklist,
   };
 }

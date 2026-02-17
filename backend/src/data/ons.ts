@@ -1,5 +1,6 @@
 import type { SeriesItem } from "../types/contracts";
 import { cachedFetchJson } from "../services/dynamoCache";
+import { fetchWithRetry } from "./fetch-with-retry";
 
 const MMM_TO_MM: Record<string, string> = {
   Jan: "01",
@@ -65,7 +66,7 @@ export async function fetchOnsCpihYoY(options?: {
     cacheKey: `ons:${url}`,
     ttlSeconds: 7 * 24 * 60 * 60,
     fetchFresh: async () => {
-      const res = await fetch(url);
+      const res = await fetchWithRetry(url);
       if (!res.ok) throw new Error(`ons_fetch_failed:${res.status}`);
 
       const payload = (await res.json()) as { observations?: OnsObservation[] };

@@ -115,9 +115,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return withCors(json(200, data));
     }
 
-    return errorJson(404, "not_found", "Route not found.", { path, method });
+    return errorJson(404, "not_found", "Route not found.");
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown_error";
-    return errorJson(500, "internal_error", "Request failed.", { message, path, method });
+    if (message === "invalid_criteria_query_json") {
+      return errorJson(400, "invalid_criteria", "Query parameter 'criteria' must be valid JSON.");
+    }
+    return errorJson(500, "internal_error", "Request failed.");
   }
 }

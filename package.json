@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "node -e \"console.log('Use scripts/dev-sam.sh (bash).')\"",
     "build": "npm -w backend run build && npm -w client run build",
-    "lint": "npm -w backend run lint && npm -w client run lint"
+    "lint": "npm -w backend run lint && npm -w client run lint",
+    "test": "npm -w backend run test && npm -w client run test"
   }
 }

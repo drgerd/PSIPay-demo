@@ -46,8 +46,20 @@ export function buildSavingsCompare(products: ProductsResponse, criteria: Criter
       },
     ],
     chartSeries: [
-      { label: savings.label, data: savingsWindow },
-      { label: inflation.label, data: inflationWindow },
+      {
+        seriesCode: savings.seriesCode,
+        label: savings.label,
+        unit: savings.unit,
+        asOf: savings.asOf,
+        data: savingsWindow,
+      },
+      {
+        seriesCode: inflation.seriesCode,
+        label: inflation.label,
+        unit: inflation.unit,
+        asOf: inflation.asOf,
+        data: inflationWindow,
+      },
     ],
   };
 }

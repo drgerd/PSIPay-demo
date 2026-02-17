@@ -1,7 +1,7 @@
 import type { Category, CompareResponse } from "../types/contracts";
 import { buildPrompt } from "./gemini/prompts";
 import { parseAndNormalizeRecommendation } from "./gemini/schema";
-import type { Criteria, GeminiDebug, GeminiResult } from "./gemini/types";
+import type { Criteria, GeminiResult } from "./gemini/types";
 
 function pickModel(): string {
   return process.env.GEMINI_MODEL || "gemini-flash-latest";
@@ -75,10 +75,9 @@ export async function generateGeminiRecommendation(
   criteria: Criteria
 ): Promise<GeminiResult> {
   const prompt = buildPrompt(category, compare, criteria);
-  const debug: GeminiDebug = { requestPrompt: prompt, errors: [] };
 
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
-  if (!apiKey) return { ok: false, reason: "gemini_api_key_missing", debug };
+  if (!apiKey) return { ok: false, reason: "gemini_api_key_missing" };
 
   const model = pickModel();
   const attempts = geminiMaxAttempts();
@@ -87,15 +86,12 @@ export async function generateGeminiRecommendation(
   for (let i = 0; i < attempts; i += 1) {
     try {
       const text = await callGemini(model, apiKey, prompt);
-      debug.rawResponse = text;
-      const { parsed, normalized } = parseAndNormalizeRecommendation(text);
-      debug.parsedResponse = parsed;
-      return { ok: true, value: normalized, model, debug };
+      const normalized = parseAndNormalizeRecommendation(text);
+      return { ok: true, value: normalized, model };
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
-      debug.errors?.push(`attempt_${i + 1}: ${lastError}`);
     }
   }
 
-  return { ok: false, reason: lastError, debug };
+  return { ok: false, reason: lastError };
 }
