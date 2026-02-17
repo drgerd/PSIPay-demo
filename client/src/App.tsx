@@ -78,7 +78,7 @@ function LoginForm({
 
   return (
     <div style={{ maxWidth: 480, margin: "40px auto", padding: 20, border: "1px solid #d6dbe5", borderRadius: 10 }}>
-      <h1 style={{ marginTop: 0 }}>Psipay Login</h1>
+      <h1 style={{ marginTop: 0 }}>PSIPay Login</h1>
       <p style={{ color: "#555" }}>Sign in to access protected comparison APIs.</p>
       {message && <p style={{ color: "#6a4f00", background: "#fff9e6", padding: 8, borderRadius: 8 }}>{message}</p>}
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>

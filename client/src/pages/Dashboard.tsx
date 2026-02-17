@@ -71,7 +71,7 @@ export function Dashboard({ config, authToken, onLogout, onUnauthorized }: Dashb
   return (
     <div style={{ fontFamily: "Georgia, serif", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>Psipay Dashboard</h1>
+        <h1 style={{ margin: 0 }}>PSIPay Dashboard</h1>
         {onLogout && (
           <button onClick={onLogout} style={{ padding: "8px 12px", cursor: "pointer" }}>
             Log out
