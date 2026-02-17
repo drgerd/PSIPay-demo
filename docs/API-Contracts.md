@@ -96,10 +96,13 @@ Response: deterministic compare output + AI payload.
   "recommendationShort": "Based on current spreads and your preference for certainty, a fixed rate is the safer fit today.",
   "recommendation": {
     "primaryChoice": "5y fixed",
+    "nextBestAlternative": "2y fixed",
     "confidence": "medium",
+    "forecastMessage": "If rates stay elevated over the next 6-12 months, fixed terms are likely to remain more predictable.",
     "keyFactors": ["..."],
     "tradeoffs": ["..."],
-    "whatWouldChange": ["..."]
+    "whatWouldChange": ["..."],
+    "actionChecklist": ["..."]
   },
   "disclaimer": "Educational, not financial advice.",
   "dataFreshnessNote": "BoE data as-of 2026-02-15.",

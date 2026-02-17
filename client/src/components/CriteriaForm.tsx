@@ -8,6 +8,22 @@ type CriteriaFormProps = {
   disabled?: boolean;
 };
 
+function prettyKey(key: string): string {
+  const labels: Record<string, string> = {
+    loanAmount: "Loan amount",
+    ltv: "LTV",
+    horizonMonths: "Horizon (months)",
+    purpose: "Purpose",
+    riskTolerance: "Risk preference",
+    deposit: "Deposit amount",
+    access: "Access needs",
+    monthlySpend: "Monthly spend",
+    revolveBehavior: "Repayment behavior",
+    preference: "Preference",
+  };
+  return labels[key] || key;
+}
+
 export function CriteriaForm({
   category,
   criteria,
@@ -27,7 +43,7 @@ export function CriteriaForm({
       >
         {Object.entries(criteria).map(([key, value]) => (
           <label key={`${category}-${key}`} style={{ display: "grid", gap: 4 }}>
-            <span style={{ textTransform: "capitalize" }}>{key}</span>
+            <span>{prettyKey(key)}</span>
             <input
               value={String(value)}
               onChange={(e) => onChange(key, e.target.value)}

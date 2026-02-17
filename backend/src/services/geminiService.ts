@@ -5,15 +5,25 @@ type Criteria = Record<string, unknown>;
 type GeminiRecommendation = {
   recommendationShort: string;
   primaryChoice: string;
+  nextBestAlternative: string;
   confidence: "low" | "medium" | "high";
+  forecastMessage: string;
   keyFactors: string[];
   tradeoffs: string[];
   whatWouldChange: string[];
+  actionChecklist: string[];
+};
+
+type GeminiDebug = {
+  requestPrompt: string;
+  rawResponse?: string;
+  parsedResponse?: Record<string, unknown>;
+  errors?: string[];
 };
 
 type GeminiResult =
-  | { ok: true; value: GeminiRecommendation; model: string }
-  | { ok: false; reason: string };
+  | { ok: true; value: GeminiRecommendation; model: string; debug: GeminiDebug }
+  | { ok: false; reason: string; debug: GeminiDebug };
 
 function pickModel(): string {
   return process.env.GEMINI_MODEL || "gemini-flash-latest";
@@ -57,21 +67,27 @@ function normalizeRecommendation(raw: unknown): GeminiRecommendation {
   const obj = (raw || {}) as Record<string, unknown>;
   const recommendationShort = String(obj.recommendationShort || "").trim();
   const primaryChoice = String(obj.primaryChoice || "").trim();
+  const nextBestAlternative = String(obj.nextBestAlternative || "").trim();
+  const forecastMessage = String(obj.forecastMessage || "").trim();
   const keyFactors = asStringArray(obj.keyFactors);
   const tradeoffs = asStringArray(obj.tradeoffs);
   const whatWouldChange = asStringArray(obj.whatWouldChange);
+  const actionChecklist = asStringArray(obj.actionChecklist);
 
-  if (!recommendationShort || !primaryChoice || keyFactors.length === 0) {
+  if (!recommendationShort || !primaryChoice || !forecastMessage || keyFactors.length === 0) {
     throw new Error("gemini_missing_required_fields");
   }
 
   return {
     recommendationShort,
     primaryChoice,
+    nextBestAlternative: nextBestAlternative || primaryChoice,
     confidence: asConfidence(obj.confidence),
+    forecastMessage,
     keyFactors,
     tradeoffs,
     whatWouldChange,
+    actionChecklist,
   };
 }
 
@@ -89,10 +105,13 @@ function buildPrompt(category: Category, compare: CompareResponse, criteria: Cri
     "{",
     '  "recommendationShort": "1-2 sentence plain-English summary",',
     '  "primaryChoice": "string matching an option label",',
+    '  "nextBestAlternative": "string matching another option label",',
     '  "confidence": "low|medium|high",',
+    '  "forecastMessage": "2-3 sentence scenario-based 6-12 month outlook",',
     '  "keyFactors": ["2-4 short bullets"],',
     '  "tradeoffs": ["2-4 short bullets"],',
-    '  "whatWouldChange": ["2-4 short bullets"]',
+    '  "whatWouldChange": ["2-4 short bullets"],',
+    '  "actionChecklist": ["2-4 short action steps for the user"]',
     "}",
   ].join("\n");
 }
@@ -139,11 +158,16 @@ export async function generateGeminiRecommendation(
   compare: CompareResponse,
   criteria: Criteria
 ): Promise<GeminiResult> {
+  const prompt = buildPrompt(category, compare, criteria);
+  const debug: GeminiDebug = {
+    requestPrompt: prompt,
+    errors: [],
+  };
+
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
-  if (!apiKey) return { ok: false, reason: "gemini_api_key_missing" };
+  if (!apiKey) return { ok: false, reason: "gemini_api_key_missing", debug };
 
   const model = pickModel();
-  const prompt = buildPrompt(category, compare, criteria);
 
   const attempts = 2;
   let lastError = "gemini_unknown_error";
@@ -151,13 +175,18 @@ export async function generateGeminiRecommendation(
   for (let i = 0; i < attempts; i += 1) {
     try {
       const text = await callGemini(model, apiKey, prompt);
+      debug.rawResponse = text;
       const parsed = parseGeminiJson(toText(text));
+      if (parsed && typeof parsed === "object") {
+        debug.parsedResponse = parsed as Record<string, unknown>;
+      }
       const normalized = normalizeRecommendation(parsed);
-      return { ok: true, value: normalized, model };
+      return { ok: true, value: normalized, model, debug };
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
+      debug.errors?.push(`attempt_${i + 1}: ${lastError}`);
     }
   }
 
-  return { ok: false, reason: lastError };
+  return { ok: false, reason: lastError, debug };
 }

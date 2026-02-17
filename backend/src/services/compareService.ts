@@ -258,8 +258,10 @@ export function buildLiveRecommendation(
   });
 
   const top = sorted[0] || compare.options[0];
+  const second = sorted[1] || compare.options[1] || top;
   const risk = String(criteria.riskTolerance || "balanced");
   const primary = top?.label || "No recommendation";
+  const alternative = second?.label || primary;
 
   let short = `Based on the latest market data, ${primary} is currently the strongest fit.`;
   if (category === "mortgages" && risk.includes("certainty")) {
@@ -274,7 +276,14 @@ export function buildLiveRecommendation(
     recommendationShort: short,
     recommendation: {
       primaryChoice: primary,
+      nextBestAlternative: alternative,
       confidence: "medium",
+      forecastMessage:
+        category === "mortgages"
+          ? "If the base rate stays elevated over the next 6-12 months, fixed options are likely to remain more predictable for monthly budgeting."
+          : category === "savings"
+            ? "If inflation cools faster than savings rates, real returns may improve over the next 6-12 months."
+            : "If you continue carrying balances, low-APR types are likely to stay more cost-effective than rewards-focused cards.",
       keyFactors: [
         "Based on latest available BoE/ONS series",
         "Compared using deterministic, transparent assumptions",
@@ -286,6 +295,11 @@ export function buildLiveRecommendation(
       whatWouldChange: [
         "Material shift in base rate path or inflation trend",
         "Different user preferences or time horizon",
+      ],
+      actionChecklist: [
+        "Review the top two options side by side in the comparison table",
+        "Adjust your horizon or risk preference and re-run the scenario",
+        "Use the trend chart to confirm whether current conditions are changing",
       ],
     },
     disclaimer: "Educational, not financial advice.",

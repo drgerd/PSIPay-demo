@@ -45,10 +45,13 @@ export type RecommendationsResponse = {
   recommendationShort: string;
   recommendation: {
     primaryChoice: string;
+    nextBestAlternative: string;
     confidence: "low" | "medium" | "high";
+    forecastMessage: string;
     keyFactors: string[];
     tradeoffs: string[];
     whatWouldChange: string[];
+    actionChecklist: string[];
   };
   disclaimer: string;
   dataFreshnessNote: string;
@@ -57,6 +60,12 @@ export type RecommendationsResponse = {
     fallback: boolean;
     model?: string;
     reason?: string;
+    debug?: {
+      requestPrompt?: string;
+      rawResponse?: string;
+      parsedResponse?: Record<string, unknown>;
+      errors?: string[];
+    };
   };
   compare: CompareResponse;
 };

@@ -3,6 +3,7 @@ import type { AppConfig } from "../api/config";
 import { apiGet, apiPost } from "../api/http";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { CriteriaForm } from "../components/CriteriaForm";
+import { DeveloperDiagnostics } from "../components/DeveloperDiagnostics";
 import { InsightsPanel } from "../components/InsightsPanel";
 import { TrendChart } from "../components/TrendChart";
 import type {
@@ -16,6 +17,14 @@ import type {
 
 type DashboardProps = {
   config: AppConfig;
+};
+
+type RequestLog = {
+  endpoint: string;
+  ok: boolean;
+  status: number;
+  durationMs: number;
+  at: string;
 };
 
 const defaultCriteria: Record<Category, Record<string, unknown>> = {
@@ -60,6 +69,7 @@ export function Dashboard({ config }: DashboardProps) {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>("");
+  const [requestLog, setRequestLog] = useState<RequestLog[]>([]);
 
   const categories = useMemo(() => ["mortgages", "savings", "credit-cards"] as const, []);
   const horizonMonths = useMemo(() => {
@@ -74,9 +84,35 @@ export function Dashboard({ config }: DashboardProps) {
     setLoadingProducts(true);
     setCompare(null);
     setRecommendation(null);
+
+    const started = performance.now();
     apiGet(config.apiBaseUrl, `/products/${category}?horizonMonths=${horizonMonths}`)
-      .then((res) => setProducts(res as ProductsResponse))
-      .catch((e) => setError(String(e)))
+      .then((res) => {
+        setProducts(res as ProductsResponse);
+        setRequestLog((prev) => [
+          {
+            endpoint: `GET /products/${category}`,
+            ok: true,
+            status: 200,
+            durationMs: Math.round(performance.now() - started),
+            at: new Date().toISOString(),
+          },
+          ...prev,
+        ].slice(0, 12));
+      })
+      .catch((e) => {
+        setError(String(e));
+        setRequestLog((prev) => [
+          {
+            endpoint: `GET /products/${category}`,
+            ok: false,
+            status: 500,
+            durationMs: Math.round(performance.now() - started),
+            at: new Date().toISOString(),
+          },
+          ...prev,
+        ].slice(0, 12));
+      })
       .finally(() => setLoadingProducts(false));
   }, [category, config.apiBaseUrl, horizonMonths]);
 
@@ -96,18 +132,50 @@ export function Dashboard({ config }: DashboardProps) {
     setSubmitting(true);
     try {
       const body: CompareRequest = { category, criteria: criteria[category] };
+      const compareStarted = performance.now();
       const compareRes = (await apiPost(config.apiBaseUrl, "/compare", body)) as CompareResponse;
       setCompare(compareRes);
+      setRequestLog((prev) => [
+        {
+          endpoint: "POST /compare",
+          ok: true,
+          status: 200,
+          durationMs: Math.round(performance.now() - compareStarted),
+          at: new Date().toISOString(),
+        },
+        ...prev,
+      ].slice(0, 12));
 
+      const recommendationStarted = performance.now();
       const recRes = (await apiPost(
         config.apiBaseUrl,
         "/recommendations",
         body
       )) as RecommendationsResponse;
       setRecommendation(recRes);
+      setRequestLog((prev) => [
+        {
+          endpoint: "POST /recommendations",
+          ok: true,
+          status: 200,
+          durationMs: Math.round(performance.now() - recommendationStarted),
+          at: new Date().toISOString(),
+        },
+        ...prev,
+      ].slice(0, 12));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(`Compare/Recommend failed: ${message}`);
+      setRequestLog((prev) => [
+        {
+          endpoint: "POST /compare or /recommendations",
+          ok: false,
+          status: 500,
+          durationMs: 0,
+          at: new Date().toISOString(),
+        },
+        ...prev,
+      ].slice(0, 12));
     } finally {
       setSubmitting(false);
     }
@@ -126,15 +194,24 @@ export function Dashboard({ config }: DashboardProps) {
       )
     : [];
 
+  const recommendedOption = compare?.options.find(
+    (item) => item.label === recommendation?.recommendation.primaryChoice
+  );
+  const alternativeOption = compare?.options.find(
+    (item) => item.label === recommendation?.recommendation.nextBestAlternative
+  );
+
+  const scenarioSummary = Object.entries(criteria[category] || {})
+    .map(([k, v]) => `${k}: ${String(v)}`)
+    .join(" | ");
+
   return (
-    <div style={{ fontFamily: "ui-sans-serif, system-ui", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ fontFamily: "Georgia, serif", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ margin: 0 }}>Psipay Dashboard</h1>
-      <p style={{ marginTop: 8, color: "#444" }}>
-        API: <code>{config.apiBaseUrl}</code>
-      </p>
+      <p style={{ marginTop: 8, color: "#444" }}>Compare UK financial options with live data and AI guidance.</p>
 
       {error && (
-        <div style={{ background: "#fff4f4", border: "1px solid #e58", padding: 10, borderRadius: 6 }}>
+        <div style={{ background: "#fff6f6", border: "1px solid #e58", padding: 10, borderRadius: 8 }}>
           {error}
         </div>
       )}
@@ -160,8 +237,33 @@ export function Dashboard({ config }: DashboardProps) {
         disabled={submitting || loadingProducts}
       />
 
+      <section
+        style={{
+          marginTop: 18,
+          border: "1px solid #ebeef3",
+          background: "#fbfdff",
+          borderRadius: 10,
+          padding: 10,
+        }}
+      >
+        <strong>Current scenario:</strong> {scenarioSummary}
+      </section>
+
+      {recommendation && <InsightsPanel recommendation={recommendation} />}
+
+      {compare && (
+        <section style={{ marginTop: 24 }}>
+          <h2 style={{ marginBottom: 8 }}>Side-by-side comparison</h2>
+          <ComparisonTable
+            options={compare.options}
+            recommendedId={recommendedOption?.id}
+            alternativeId={alternativeOption?.id}
+          />
+        </section>
+      )}
+
       <TrendChart
-        title="Market snapshot (/products)"
+        title={compare ? "Trend context for your recommendation" : "Current market snapshot"}
         rows={snapshotRows}
         labels={products?.series.map((s) => s.label) ?? []}
         emptyText={loadingProducts ? "Loading snapshot..." : "No snapshot data"}
@@ -169,20 +271,23 @@ export function Dashboard({ config }: DashboardProps) {
 
       {compare && (
         <section style={{ marginTop: 24 }}>
-          <h2 style={{ marginBottom: 8 }}>Comparison (/compare)</h2>
-          <ComparisonTable options={compare.options} />
           <TrendChart
-            title="Trend context"
+            title="Compared options trend"
             rows={compareRows}
             labels={compare.chartSeries.map((s) => s.label)}
           />
-          <p style={{ marginTop: 10, color: "#444" }}>
-            Assumptions: {compare.assumptions.join(" | ")}
-          </p>
         </section>
       )}
 
-      {recommendation && <InsightsPanel recommendation={recommendation} />}
+      <DeveloperDiagnostics
+        apiBaseUrl={config.apiBaseUrl}
+        category={category}
+        criteria={criteria[category]}
+        products={products}
+        compare={compare}
+        recommendation={recommendation}
+        requestLog={requestLog}
+      />
     </div>
   );
 }
