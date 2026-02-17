@@ -14,7 +14,6 @@ ONS_CPIH_VERSION=66
 DEFAULT_HISTORY_MONTHS=12
 GEMINI_API_KEY=... (required for AI recommendations)
 CACHE_TABLE_NAME=Cache
-DYNAMODB_ENDPOINT=http://127.0.0.1:8000
 AWS_ACCESS_KEY_ID=dummy
 AWS_SECRET_ACCESS_KEY=dummy
 ```
@@ -25,6 +24,8 @@ Note: SAM local Lambda runs in Docker. The script creates a shared Docker networ
 - SAM local API on the same Docker network
 
 So Lambda reaches DynamoDB Local via `http://dynamodb-local:8000`.
+Do not set `DYNAMODB_ENDPOINT` in `scripts/env.local` for SAM local;
+`scripts/dev-sam.sh` injects the correct endpoint for container networking.
 
 ## 2) Run backend (SAM Local)
 

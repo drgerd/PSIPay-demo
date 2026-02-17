@@ -9,4 +9,4 @@ Local:
 - DynamoDB Local recommended (see `docs/LocalDev.md`)
 
 Deploy:
-- `powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1`
+- `bash scripts/deploy.sh --stack psipay --bucket <globally-unique-bucket>`

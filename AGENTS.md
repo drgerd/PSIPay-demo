@@ -53,6 +53,12 @@ Deploy (SAM + S3 upload):
 bash scripts/deploy.sh --stack psipay --bucket <globally-unique-bucket>
 ```
 
+Delete deployed stack/resources:
+
+```bash
+bash scripts/destroy.sh --stack psipay
+```
+
 ### “Single Test” / Minimal Verification
 
 There is no automated test runner configured right now. Use smoke calls:

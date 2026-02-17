@@ -16,6 +16,10 @@ Parameters:
     Type: String
     Default: ""
     Description: "Local DynamoDB endpoint for SAM local (leave empty in deployed env)"
+  LogsRetentionDays:
+    Type: Number
+    Default: 14
+    Description: "CloudWatch Logs retention for Lambda log group"
 
 Globals:
   Function:
@@ -77,6 +81,12 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /recommendations
             Method: GET
+        Health:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /health
+            Method: GET
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -101,6 +111,15 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttlEpoch
         Enabled: true
+      Tags:
+        - Key: psipay
+          Value: "true"
+
+  ApiFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ApiFunction}"
+      RetentionInDays: !Ref LogsRetentionDays
       Tags:
         - Key: psipay
           Value: "true"

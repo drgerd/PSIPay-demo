@@ -9,37 +9,80 @@ Monorepo:
 - `infra/aws-sam/` AWS SAM app (Lambda + API Gateway + DynamoDB + S3 website)
 - `scripts/` local dev + deploy helpers
 
-## Quick Start (Local)
+## Prerequisites
 
-Prereqs:
 - Node.js 20+
+- AWS CLI configured (`aws configure`)
+- AWS SAM CLI
+- Docker (for local SAM)
 
-1) Start local SAM API (Lambda emulation) + client:
+Default deployment settings:
+- Region: `eu-central-1`
+- Stack name: `psipay`
+- Resource tag: `psipay=true`
 
-PowerShell:
+## Local Development
 
-```
-powershell -ExecutionPolicy Bypass -File scripts/dev-sam.ps1
-```
+Start full local stack (SAM local API + DynamoDB Local + Vite):
 
-Or bash:
-
-```
+```bash
 bash scripts/dev-sam.sh
 ```
 
-2) Set `ONS_CPIH_VERSION` if you need a different ONS dataset version.
+Optional local env vars can be placed in `scripts/env.local` (gitignored).
 
-## Deploy (High Level)
+## Create Infrastructure + Deploy App
 
-All resources deploy via SAM (Lambda + API Gateway + DynamoDB cache + S3 website).
+This provisions and deploys all required AWS services through SAM:
+- API Gateway
+- Lambda
+- DynamoDB (cache)
+- S3 static website bucket
+- CloudWatch Logs (Lambda log group with retention)
 
-- Bash: `bash scripts/deploy.sh --stack psipay --bucket <unique-bucket-name>`
-- PowerShell: `powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -StackName psipay -BucketName <unique-bucket-name>`
+Run:
 
-Notes:
-- Region default: `eu-central-1` (override with `AWS_REGION` or `--region`)
-- Runtime client config is written to `client/dist/config.json` during deploy (no tracked files are mutated)
+```bash
+bash scripts/deploy.sh --stack psipay --region eu-central-1 --bucket <globally-unique-bucket>
+```
+
+What the script does:
+- Builds and deploys SAM stack from `infra/aws-sam/template.yaml`
+- Passes stack/resource tag `psipay=true`
+- Builds frontend and uploads `client/dist` to S3
+- Writes runtime `client/dist/config.json` with deployed API URL before upload
+
+Optional:
+
+```bash
+bash scripts/deploy.sh --stack psipay --region eu-central-1 --bucket <globally-unique-bucket> --logs-retention-days 30
+```
+
+## Delete Infrastructure
+
+To remove all provisioned resources:
+
+```bash
+bash scripts/destroy.sh --stack psipay --region eu-central-1
+```
+
+The script empties the website S3 bucket first, then runs `sam delete`.
+
+## Post-Deploy Smoke Checks
+
+```bash
+curl -s <api-base-url>/health
+curl -s <api-base-url>/products/mortgages
+curl -s -X POST <api-base-url>/compare \
+  -H 'content-type: application/json' \
+  -d '{"category":"mortgages","criteria":{"loanAmount":200000,"horizonMonths":24}}'
+```
+
+## Notes
+
+- `scripts/env.local` is for local-only values and is not committed.
+- `GEMINI_API_KEY` can be provided in your shell or `scripts/env.local` before deploy.
+- Runtime client config is generated during deploy; tracked source files are not mutated.
 
 Docs:
 - Data pipeline rules: `docs/Skills-DataSources.md`

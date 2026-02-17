@@ -10,6 +10,7 @@ set -euo pipefail
 STACK_NAME="psipay"
 REGION="${AWS_REGION:-eu-central-1}"
 BUCKET_NAME=""
+LOGS_RETENTION_DAYS="14"
 
 SAM_BIN="$(command -v sam || true)"
 if [[ -z "${SAM_BIN}" && -x "/home/${USER}/.local/bin/sam" ]]; then
@@ -32,6 +33,8 @@ while [[ $# -gt 0 ]]; do
       REGION="$2"; shift 2 ;;
     --bucket)
       BUCKET_NAME="$2"; shift 2 ;;
+    --logs-retention-days)
+      LOGS_RETENTION_DAYS="$2"; shift 2 ;;
     *)
       echo "Unknown arg: $1" >&2
       exit 2
@@ -46,7 +49,7 @@ fi
 
 if [[ -f scripts/env.local ]]; then
   # shellcheck disable=SC1091
-  source scripts/env.local
+  source <(tr -d '\r' < scripts/env.local)
 fi
 
 echo "Deploying SAM stack '${STACK_NAME}' to ${REGION}..."
@@ -58,9 +61,12 @@ echo "Deploying SAM stack '${STACK_NAME}' to ${REGION}..."
   --region "${REGION}" \
   --resolve-s3 \
   --capabilities CAPABILITY_IAM \
+  --no-fail-on-empty-changeset \
+  --tags psipay=true \
   --parameter-overrides \
     WebsiteBucketName="${BUCKET_NAME}" \
     GeminiApiKey="${GEMINI_API_KEY:-}" \
+    LogsRetentionDays="${LOGS_RETENTION_DAYS}" \
   )
 
 API_BASE_URL=$(aws cloudformation describe-stacks \

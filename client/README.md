@@ -29,4 +29,4 @@ Notes:
 - Backend calls live BoE/ONS sources by default.
 
 Deploy to S3:
-- `scripts/deploy.sh` (bash) or `scripts/deploy.ps1` (PowerShell)
+- `bash scripts/deploy.sh --stack psipay --bucket <globally-unique-bucket>`
