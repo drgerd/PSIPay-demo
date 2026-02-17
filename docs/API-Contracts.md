@@ -1,5 +1,10 @@
 # API Contracts (MVP)
 
+Auth model:
+- `GET /health` is public.
+- `GET /products/{category}`, `POST /compare`, `POST/GET /recommendations` require
+  `Authorization: Bearer <Cognito IdToken>`.
+
 All responses include:
 - `asOf` timestamps per source/series when possible
 - `stale` boolean when returning cached data due to upstream failure
@@ -10,6 +15,9 @@ Query params:
 - `from` (optional, `YYYY-MM-DD`)
 - `to` (optional, `YYYY-MM-DD`)
 - `horizonMonths` (optional, integer, default `12`)
+
+Header:
+- `Authorization: Bearer <id-token>`
 
 Behavior:
 - default window: last 12 months
@@ -34,6 +42,9 @@ Example response (shape):
 ```
 
 ## 2) POST `/compare`
+
+Header:
+- `Authorization: Bearer <id-token>`
 
 Request:
 
@@ -111,6 +122,9 @@ Response (shape):
 Supports both:
 - `POST /recommendations` with body (same as `/compare`)
 - `GET /recommendations?category=<category>&criteria=<url-encoded-json>`
+
+Header:
+- `Authorization: Bearer <id-token>`
 
 Response: deterministic compare output + AI payload (no debug data returned).
 

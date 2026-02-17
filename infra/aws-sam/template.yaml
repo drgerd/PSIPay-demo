@@ -20,6 +20,14 @@ Parameters:
     Type: Number
     Default: 14
     Description: "CloudWatch Logs retention for Lambda log group"
+  ApiThrottleRateLimit:
+    Type: Number
+    Default: 5
+    Description: "API Gateway steady-state requests per second limit"
+  ApiThrottleBurstLimit:
+    Type: Number
+    Default: 10
+    Description: "API Gateway burst requests limit"
 
 Globals:
   Function:
@@ -42,7 +50,18 @@ Resources:
       Cors:
         AllowOrigin: "'*'"
         AllowMethods: "'GET,POST,OPTIONS'"
-        AllowHeaders: "'Content-Type'"
+        AllowHeaders: "'Content-Type,Authorization'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: !Ref ApiThrottleRateLimit
+          ThrottlingBurstLimit: !Ref ApiThrottleBurstLimit
       Tags:
         psipay: "true"
 
@@ -87,6 +106,8 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /health
             Method: GET
+            Auth:
+              Authorizer: NONE
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -123,6 +144,51 @@ Resources:
       Tags:
         - Key: psipay
           Value: "true"
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-users"
+      AutoVerifiedAttributes: []
+      UsernameAttributes: []
+      UsernameConfiguration:
+        CaseSensitive: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: false
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+      UserPoolTags:
+        psipay: "true"
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-web-client"
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+      SupportedIdentityProviders:
+        - COGNITO
 
   WebsiteBucket:
     Type: AWS::S3::Bucket
@@ -164,3 +230,15 @@ Outputs:
   WebsiteUrl:
     Description: S3 static website URL
     Value: !Sub "http://${WebsiteBucket}.s3-website.${AWS::Region}.amazonaws.com"
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool App Client ID
+    Value: !Ref CognitoUserPoolClient
+
+  CognitoRegion:
+    Description: Cognito region for auth calls
+    Value: !Ref AWS::Region

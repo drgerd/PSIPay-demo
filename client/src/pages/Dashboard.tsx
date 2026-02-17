@@ -12,9 +12,11 @@ import { shouldShowCompareChart, shouldShowProductsChart } from "../utils/chart-
 
 type DashboardProps = {
   config: AppConfig;
+  authToken?: string;
+  onLogout?: () => void;
 };
 
-export function Dashboard({ config }: DashboardProps) {
+export function Dashboard({ config, authToken, onLogout }: DashboardProps) {
   const [category, setCategory] = useState<Category>("mortgages");
   const categories = useMemo(() => ["mortgages", "savings", "credit-cards"] as const, []);
   const { criteria, updateCriterion } = useCriteriaState();
@@ -31,6 +33,7 @@ export function Dashboard({ config }: DashboardProps) {
     submitCompareAndRecommend,
   } = useScenarioData({
     apiBaseUrl: config.apiBaseUrl,
+    authToken,
     category,
     criteria,
   });
@@ -51,7 +54,14 @@ export function Dashboard({ config }: DashboardProps) {
 
   return (
     <div style={{ fontFamily: "Georgia, serif", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
-      <h1 style={{ margin: 0 }}>Psipay Dashboard</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1 style={{ margin: 0 }}>Psipay Dashboard</h1>
+        {onLogout && (
+          <button onClick={onLogout} style={{ padding: "8px 12px", cursor: "pointer" }}>
+            Log out
+          </button>
+        )}
+      </div>
       <p style={{ marginTop: 8, color: "#444" }}>Compare UK financial options with live data and AI guidance.</p>
 
       {error && (

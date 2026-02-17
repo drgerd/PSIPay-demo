@@ -11,6 +11,8 @@ STACK_NAME="psipay"
 REGION="${AWS_REGION:-eu-central-1}"
 BUCKET_NAME=""
 LOGS_RETENTION_DAYS="14"
+API_THROTTLE_RATE_LIMIT="5"
+API_THROTTLE_BURST_LIMIT="10"
 
 SAM_BIN="$(command -v sam || true)"
 if [[ -z "${SAM_BIN}" && -x "/home/${USER}/.local/bin/sam" ]]; then
@@ -35,6 +37,10 @@ while [[ $# -gt 0 ]]; do
       BUCKET_NAME="$2"; shift 2 ;;
     --logs-retention-days)
       LOGS_RETENTION_DAYS="$2"; shift 2 ;;
+    --api-throttle-rate)
+      API_THROTTLE_RATE_LIMIT="$2"; shift 2 ;;
+    --api-throttle-burst)
+      API_THROTTLE_BURST_LIMIT="$2"; shift 2 ;;
     *)
       echo "Unknown arg: $1" >&2
       exit 2
@@ -67,6 +73,8 @@ echo "Deploying SAM stack '${STACK_NAME}' to ${REGION}..."
     WebsiteBucketName="${BUCKET_NAME}" \
     GeminiApiKey="${GEMINI_API_KEY:-}" \
     LogsRetentionDays="${LOGS_RETENTION_DAYS}" \
+    ApiThrottleRateLimit="${API_THROTTLE_RATE_LIMIT}" \
+    ApiThrottleBurstLimit="${API_THROTTLE_BURST_LIMIT}" \
   )
 
 API_BASE_URL=$(aws cloudformation describe-stacks \
@@ -81,6 +89,24 @@ WEBSITE_URL=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='WebsiteUrl'].OutputValue" \
   --output text)
 
+COGNITO_USER_POOL_ID=$(aws cloudformation describe-stacks \
+  --region "${REGION}" \
+  --stack-name "${STACK_NAME}" \
+  --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" \
+  --output text)
+
+COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks \
+  --region "${REGION}" \
+  --stack-name "${STACK_NAME}" \
+  --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolClientId'].OutputValue" \
+  --output text)
+
+COGNITO_REGION=$(aws cloudformation describe-stacks \
+  --region "${REGION}" \
+  --stack-name "${STACK_NAME}" \
+  --query "Stacks[0].Outputs[?OutputKey=='CognitoRegion'].OutputValue" \
+  --output text)
+
 echo "Building client..."
 (npm -w client install --silent --no-bin-links)
 (npm -w client run build)
@@ -88,7 +114,13 @@ echo "Building client..."
 echo "Writing runtime config into dist/config.json"
 cat > client/dist/config.json <<EOF
 {
-  "apiBaseUrl": "${API_BASE_URL}"
+  "apiBaseUrl": "${API_BASE_URL}",
+  "auth": {
+    "enabled": true,
+    "region": "${COGNITO_REGION}",
+    "userPoolId": "${COGNITO_USER_POOL_ID}",
+    "clientId": "${COGNITO_CLIENT_ID}"
+  }
 }
 EOF
 
@@ -98,3 +130,5 @@ aws s3 sync client/dist "s3://${BUCKET_NAME}" --region "${REGION}" --delete
 echo "Done."
 echo "- API: ${API_BASE_URL}"
 echo "- Website: ${WEBSITE_URL}"
+echo "- Cognito User Pool: ${COGNITO_USER_POOL_ID}"
+echo "- Cognito App Client: ${COGNITO_CLIENT_ID}"

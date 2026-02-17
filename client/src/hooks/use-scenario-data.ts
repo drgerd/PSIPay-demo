@@ -5,10 +5,11 @@ import { mergeSeriesForChart } from "../utils/merge-series-for-chart";
 
 export function useScenarioData(args: {
   apiBaseUrl: string;
+  authToken?: string;
   category: Category;
   criteria: Record<Category, Record<string, unknown>>;
 }) {
-  const { apiBaseUrl, category, criteria } = args;
+  const { apiBaseUrl, authToken, category, criteria } = args;
   const [products, setProducts] = useState<ProductsResponse | null>(null);
   const [compare, setCompare] = useState<CompareResponse | null>(null);
   const [recommendation, setRecommendation] = useState<RecommendationsResponse | null>(null);
@@ -30,7 +31,7 @@ export function useScenarioData(args: {
     setCompare(null);
     setRecommendation(null);
 
-    apiGet(apiBaseUrl, `/products/${category}?horizonMonths=${horizonMonths}`)
+    apiGet(apiBaseUrl, `/products/${category}?horizonMonths=${horizonMonths}`, authToken)
       .then((res) => {
         setProducts(res as ProductsResponse);
       })
@@ -38,14 +39,14 @@ export function useScenarioData(args: {
         setError(String(e));
       })
       .finally(() => setLoadingProducts(false));
-  }, [apiBaseUrl, category, horizonMonths]);
+  }, [apiBaseUrl, authToken, category, horizonMonths]);
 
   async function submitCompareAndRecommend() {
     setError("");
     setSubmitting(true);
     try {
       const body = { category, criteria: criteria[category] };
-      const recRes = (await apiPost(apiBaseUrl, "/recommendations", body)) as RecommendationsResponse;
+      const recRes = (await apiPost(apiBaseUrl, "/recommendations", body, authToken)) as RecommendationsResponse;
       setRecommendation(recRes);
       setCompare(recRes.compare as CompareResponse);
     } catch (e) {

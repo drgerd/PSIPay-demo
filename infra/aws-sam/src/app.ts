@@ -8,7 +8,7 @@ import type { Category } from "../../../backend/src/types/contracts";
 
 const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "content-type",
+  "access-control-allow-headers": "content-type,authorization",
   "access-control-allow-methods": "GET,POST,OPTIONS",
 };
 
