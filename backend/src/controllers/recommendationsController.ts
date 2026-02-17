@@ -6,10 +6,9 @@ type Criteria = Record<string, unknown>;
 
 export async function recommend(
   category: Category,
-  criteria: Criteria,
-  options?: { skipCache?: boolean }
+  criteria: Criteria
 ): Promise<RecommendationsResponse> {
-  const compare = await buildLiveCompare(category, criteria, options);
+  const compare = await buildLiveCompare(category, criteria);
   const deterministic = buildLiveRecommendation(category, compare, criteria);
   const ai = await generateGeminiRecommendation(category, compare, criteria);
 

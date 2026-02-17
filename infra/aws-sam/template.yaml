@@ -12,6 +12,10 @@ Parameters:
     Default: ""
     NoEcho: true
     Description: "Optional Gemini API key (used by /recommendations when enabled)"
+  DynamoDbEndpoint:
+    Type: String
+    Default: ""
+    Description: "Local DynamoDB endpoint for SAM local (leave empty in deployed env)"
 
 Globals:
   Function:
@@ -21,6 +25,7 @@ Globals:
     Environment:
       Variables:
         CACHE_TABLE_NAME: !Ref CacheTable
+        DYNAMODB_ENDPOINT: !Ref DynamoDbEndpoint
         DEFAULT_HISTORY_MONTHS: '12'
         ONS_CPIH_VERSION: '66'
         GEMINI_API_KEY: !Ref GeminiApiKey
@@ -85,6 +90,7 @@ Resources:
   CacheTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: Cache
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: cacheKey

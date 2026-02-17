@@ -1,223 +1,10 @@
 import type { Category, CompareResponse } from "../types/contracts";
-
-type Criteria = Record<string, unknown>;
-
-type GeminiRecommendation = {
-  recommendationShort: string;
-  primaryChoice: string;
-  nextBestAlternative: string;
-  confidence: "low" | "medium" | "high";
-  forecastMessage: string;
-  keyFactors: string[];
-  tradeoffs: string[];
-  whatWouldChange: string[];
-  actionChecklist: string[];
-};
-
-type GeminiDebug = {
-  requestPrompt: string;
-  rawResponse?: string;
-  parsedResponse?: Record<string, unknown>;
-  errors?: string[];
-};
-
-type GeminiResult =
-  | { ok: true; value: GeminiRecommendation; model: string; debug: GeminiDebug }
-  | { ok: false; reason: string; debug: GeminiDebug };
-
-type NormalizedCreditCardCriteria = {
-  monthlySpend: number;
-  payInFullMonthly: boolean;
-  carryDebt: boolean;
-  carryDebtAmount: number;
-  topCategories: string[];
-  primaryGoal: string;
-};
+import { buildPrompt } from "./gemini/prompts";
+import { parseAndNormalizeRecommendation } from "./gemini/schema";
+import type { Criteria, GeminiDebug, GeminiResult } from "./gemini/types";
 
 function pickModel(): string {
   return process.env.GEMINI_MODEL || "gemini-flash-latest";
-}
-
-function toText(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value);
-}
-
-function asConfidence(value: unknown): "low" | "medium" | "high" {
-  const v = String(value || "").toLowerCase();
-  if (v === "low" || v === "high") return v;
-  return "medium";
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((v) => String(v).trim()).filter(Boolean).slice(0, 6);
-}
-
-function asNumber(value: unknown, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
-
-function asBool(value: unknown, fallback: boolean): boolean {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "yes", "1", "y"].includes(normalized)) return true;
-    if (["false", "no", "0", "n"].includes(normalized)) return false;
-  }
-  if (typeof value === "number") return value !== 0;
-  return fallback;
-}
-
-function normalizeCreditCardCriteria(criteria: Criteria): NormalizedCreditCardCriteria {
-  const allowedCategories = new Set([
-    "groceries",
-    "fuel/transport",
-    "travel",
-    "dining",
-    "online shopping",
-    "general",
-  ]);
-  const allowedGoals = new Set([
-    "minimize interest",
-    "maximize rewards",
-    "simplicity/no fees",
-    "travel benefits",
-  ]);
-
-  const monthlySpend = Math.max(0, asNumber(criteria.monthlySpend, 1200));
-  const payInFullMonthly = asBool(criteria.payInFullMonthly, true);
-  const carryDebt = asBool(criteria.carryDebt, !payInFullMonthly);
-  const carryDebtAmount = Math.max(0, asNumber(criteria.carryDebtAmount, monthlySpend));
-  const topCategories = asStringArray(criteria.topCategories)
-    .map((v) => v.toLowerCase())
-    .filter((v) => allowedCategories.has(v));
-  const primaryGoalRaw = String(criteria.primaryGoal || "maximize rewards").toLowerCase();
-  const primaryGoal = allowedGoals.has(primaryGoalRaw) ? primaryGoalRaw : "maximize rewards";
-
-  return {
-    monthlySpend,
-    payInFullMonthly,
-    carryDebt,
-    carryDebtAmount,
-    topCategories: topCategories.length ? topCategories : ["general"],
-    primaryGoal,
-  };
-}
-
-function parseGeminiJson(text: string): unknown {
-  const direct = text.trim();
-  try {
-    return JSON.parse(direct);
-  } catch {
-    // Try fenced JSON block fallback.
-  }
-
-  const fenced = /```json\s*([\s\S]*?)```/i.exec(text);
-  if (fenced?.[1]) return JSON.parse(fenced[1]);
-
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    return JSON.parse(text.slice(firstBrace, lastBrace + 1));
-  }
-  throw new Error("gemini_non_json_response");
-}
-
-function normalizeRecommendation(raw: unknown): GeminiRecommendation {
-  const obj = (raw || {}) as Record<string, unknown>;
-  const recommendationShort = String(obj.recommendationShort || "").trim();
-  const primaryChoice = String(obj.primaryChoice || "").trim();
-  const nextBestAlternative = String(obj.nextBestAlternative || "").trim();
-  const forecastMessage = String(obj.forecastMessage || "").trim();
-  const keyFactors = asStringArray(obj.keyFactors);
-  const tradeoffs = asStringArray(obj.tradeoffs);
-  const whatWouldChange = asStringArray(obj.whatWouldChange);
-  const actionChecklist = asStringArray(obj.actionChecklist);
-
-  if (!recommendationShort || !primaryChoice || !forecastMessage || keyFactors.length === 0) {
-    throw new Error("gemini_missing_required_fields");
-  }
-
-  return {
-    recommendationShort,
-    primaryChoice,
-    nextBestAlternative: nextBestAlternative || primaryChoice,
-    confidence: asConfidence(obj.confidence),
-    forecastMessage,
-    keyFactors,
-    tradeoffs,
-    whatWouldChange,
-    actionChecklist,
-  };
-}
-
-function buildPrompt(category: Category, compare: CompareResponse, criteria: Criteria): string {
-  if (category === "credit-cards") {
-    const normalized = normalizeCreditCardCriteria(criteria);
-    const ranking = compare.options.slice(0, 5).map((option) => ({
-      type: option.label,
-      score: option.metrics.score,
-      estimatedAnnualValue: option.metrics.estimated_annual_value,
-      estimatedAnnualRewards: option.metrics.estimated_annual_rewards,
-      estimatedAnnualInterestCost: option.metrics.estimated_annual_interest_cost,
-      assumedAnnualFee: option.metrics.assumed_annual_fee,
-      notes: option.metrics.notes,
-    }));
-
-    return [
-      "You are a UK personal finance explainer for credit card type selection.",
-      "Do not decide ranking. Ranking is deterministic and final.",
-      "Use only provided numbers and profile. Do not invent data.",
-      "Tone: practical and plain language, no financial advice.",
-      "Return JSON only (no markdown).",
-      "",
-      `Category: ${category}`,
-      `UserProfile: ${JSON.stringify(normalized)}`,
-      `DeterministicRanking: ${JSON.stringify(ranking)}`,
-      `Assumptions: ${JSON.stringify(compare.assumptions)}`,
-      "",
-      "JSON schema:",
-      "{",
-      '  "recommendationShort": "1-2 sentence summary aligned with top deterministic type",',
-      '  "primaryChoice": "must match deterministic top type label",',
-      '  "nextBestAlternative": "must match deterministic second type label",',
-      '  "confidence": "low|medium|high",',
-      '  "forecastMessage": "2-3 sentence scenario note for next 6-12 months",',
-      '  "keyFactors": ["2-4 short bullets tied to profile + ranking numbers"],',
-      '  "tradeoffs": ["2-4 short bullets"],',
-      '  "whatWouldChange": ["2-4 short bullets including a pay-in-full vs revolving what-if"],',
-      '  "actionChecklist": ["2-4 short practical actions"]',
-      "}",
-    ].join("\n");
-  }
-
-  return [
-    "You are a UK personal finance decision assistant.",
-    "Use ONLY the provided deterministic metrics and trends. Do not invent numbers.",
-    "Return JSON only (no markdown).",
-    "",
-    `Category: ${category}`,
-    `Criteria: ${JSON.stringify(criteria)}`,
-    `CompareData: ${JSON.stringify(compare)}`,
-    "",
-    "JSON schema:",
-    "{",
-    '  "recommendationShort": "1-2 sentence plain-English summary",',
-    '  "primaryChoice": "string matching an option label",',
-    '  "nextBestAlternative": "string matching another option label",',
-    '  "confidence": "low|medium|high",',
-    '  "forecastMessage": "2-3 sentence scenario-based 6-12 month outlook",',
-    '  "keyFactors": ["2-4 short bullets"],',
-    '  "tradeoffs": ["2-4 short bullets"],',
-    '  "whatWouldChange": ["2-4 short bullets"],',
-    '  "actionChecklist": ["2-4 short action steps for the user"]',
-    "}",
-  ].join("\n");
 }
 
 async function callGemini(model: string, apiKey: string, prompt: string): Promise<string> {
@@ -227,9 +14,7 @@ async function callGemini(model: string, apiKey: string, prompt: string): Promis
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({
       generationConfig: {
         temperature: 0.2,
@@ -263,28 +48,20 @@ export async function generateGeminiRecommendation(
   criteria: Criteria
 ): Promise<GeminiResult> {
   const prompt = buildPrompt(category, compare, criteria);
-  const debug: GeminiDebug = {
-    requestPrompt: prompt,
-    errors: [],
-  };
+  const debug: GeminiDebug = { requestPrompt: prompt, errors: [] };
 
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) return { ok: false, reason: "gemini_api_key_missing", debug };
 
   const model = pickModel();
-
-  const attempts = 2;
   let lastError = "gemini_unknown_error";
 
-  for (let i = 0; i < attempts; i += 1) {
+  for (let i = 0; i < 2; i += 1) {
     try {
       const text = await callGemini(model, apiKey, prompt);
       debug.rawResponse = text;
-      const parsed = parseGeminiJson(toText(text));
-      if (parsed && typeof parsed === "object") {
-        debug.parsedResponse = parsed as Record<string, unknown>;
-      }
-      const normalized = normalizeRecommendation(parsed);
+      const { parsed, normalized } = parseAndNormalizeRecommendation(text);
+      debug.parsedResponse = parsed;
       return { ok: true, value: normalized, model, debug };
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);

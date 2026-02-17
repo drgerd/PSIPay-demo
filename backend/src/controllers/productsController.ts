@@ -4,7 +4,7 @@ import { getLiveProducts } from "../services/liveData";
 export async function getProducts(
   category: Category,
   query?: { from?: string; to?: string },
-  options?: { skipCache?: boolean; months?: number }
+  options?: { months?: number }
 ): Promise<ProductsResponse> {
   return getLiveProducts(category, query, options);
 }

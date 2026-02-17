@@ -1,215 +1,55 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { AppConfig } from "../api/config";
-import { apiGet, apiPost } from "../api/http";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { CriteriaForm } from "../components/CriteriaForm";
 import { CreditCardsForm } from "../components/CreditCardsForm";
 import { DeveloperDiagnostics } from "../components/DeveloperDiagnostics";
 import { InsightsPanel } from "../components/InsightsPanel";
 import { TrendChart } from "../components/TrendChart";
-import type {
-  Category,
-  CompareRequest,
-  CompareResponse,
-  ProductsResponse,
-  RecommendationsResponse,
-  SeriesItem,
-} from "../types/api";
+import { useCriteriaState } from "../hooks/use-criteria-state";
+import { useScenarioData } from "../hooks/use-scenario-data";
+import type { Category } from "../types/api";
+import { shouldShowCompareChart, shouldShowProductsChart } from "../utils/chart-visibility";
 
 type DashboardProps = {
   config: AppConfig;
 };
 
-type RequestLog = {
-  endpoint: string;
-  ok: boolean;
-  status: number;
-  durationMs: number;
-  at: string;
-};
-
-const defaultCriteria: Record<Category, Record<string, unknown>> = {
-  mortgages: {
-    loanAmount: 200000,
-    ltv: 0.75,
-    horizonMonths: 24,
-    purpose: "remortgage",
-    riskTolerance: "prefer-certainty",
-  },
-  savings: {
-    deposit: 10000,
-    horizonMonths: 12,
-    access: "instant",
-  },
-  "credit-cards": {
-    monthlySpend: 1200,
-    payInFullMonthly: true,
-    carryDebt: false,
-    carryDebtAmount: 0,
-    topCategories: ["general"],
-    primaryGoal: "maximize rewards",
-  },
-};
-
-function mergeSeriesForChart(series: SeriesItem[]) {
-  const byMonth = new Map<string, Record<string, number | string>>();
-  for (const s of series) {
-    for (const point of s.data) {
-      if (!byMonth.has(point.month)) byMonth.set(point.month, { month: point.month });
-      byMonth.get(point.month)![s.label] = point.value_pct;
-    }
-  }
-  return Array.from(byMonth.values()).sort((a, b) =>
-    String(a.month).localeCompare(String(b.month))
-  );
-}
-
 export function Dashboard({ config }: DashboardProps) {
   const [category, setCategory] = useState<Category>("mortgages");
-  const [criteria, setCriteria] = useState<Record<Category, Record<string, unknown>>>(defaultCriteria);
-  const [products, setProducts] = useState<ProductsResponse | null>(null);
-  const [compare, setCompare] = useState<CompareResponse | null>(null);
-  const [recommendation, setRecommendation] = useState<RecommendationsResponse | null>(null);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string>("");
-  const [requestLog, setRequestLog] = useState<RequestLog[]>([]);
-
   const categories = useMemo(() => ["mortgages", "savings", "credit-cards"] as const, []);
-  const horizonMonths = useMemo(() => {
-    const raw = criteria[category]?.horizonMonths;
-    const n = typeof raw === "number" ? raw : Number.parseInt(String(raw ?? ""), 10);
-    if (!Number.isFinite(n)) return 12;
-    return Math.max(1, Math.min(360, Math.round(n)));
-  }, [category, criteria]);
+  const { criteria, updateCriterion } = useCriteriaState();
 
-  useEffect(() => {
-    setError("");
-    setLoadingProducts(true);
-    setCompare(null);
-    setRecommendation(null);
+  const {
+    products,
+    compare,
+    recommendation,
+    loadingProducts,
+    submitting,
+    error,
+    requestLog,
+    snapshotRows,
+    compareRows,
+    submitCompareAndRecommend,
+  } = useScenarioData({
+    apiBaseUrl: config.apiBaseUrl,
+    category,
+    criteria,
+  });
 
-    const started = performance.now();
-    apiGet(config.apiBaseUrl, `/products/${category}?horizonMonths=${horizonMonths}`)
-      .then((res) => {
-        setProducts(res as ProductsResponse);
-        setRequestLog((prev) => [
-          {
-            endpoint: `GET /products/${category}`,
-            ok: true,
-            status: 200,
-            durationMs: Math.round(performance.now() - started),
-            at: new Date().toISOString(),
-          },
-          ...prev,
-        ].slice(0, 12));
-      })
-      .catch((e) => {
-        setError(String(e));
-        setRequestLog((prev) => [
-          {
-            endpoint: `GET /products/${category}`,
-            ok: false,
-            status: 500,
-            durationMs: Math.round(performance.now() - started),
-            at: new Date().toISOString(),
-          },
-          ...prev,
-        ].slice(0, 12));
-      })
-      .finally(() => setLoadingProducts(false));
-  }, [category, config.apiBaseUrl, horizonMonths]);
-
-  function updateCriterion(key: string, value: unknown) {
-    setCriteria((prev) => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [key]: value,
-      },
-    }));
-  }
-
-  async function submitCompare() {
-    setError("");
-    setSubmitting(true);
-    try {
-      const body: CompareRequest = { category, criteria: criteria[category] };
-      const compareStarted = performance.now();
-      const compareRes = (await apiPost(config.apiBaseUrl, "/compare", body)) as CompareResponse;
-      setCompare(compareRes);
-      setRequestLog((prev) => [
-        {
-          endpoint: "POST /compare",
-          ok: true,
-          status: 200,
-          durationMs: Math.round(performance.now() - compareStarted),
-          at: new Date().toISOString(),
-        },
-        ...prev,
-      ].slice(0, 12));
-
-      const recommendationStarted = performance.now();
-      const recRes = (await apiPost(
-        config.apiBaseUrl,
-        "/recommendations",
-        body
-      )) as RecommendationsResponse;
-      setRecommendation(recRes);
-      setRequestLog((prev) => [
-        {
-          endpoint: "POST /recommendations",
-          ok: true,
-          status: 200,
-          durationMs: Math.round(performance.now() - recommendationStarted),
-          at: new Date().toISOString(),
-        },
-        ...prev,
-      ].slice(0, 12));
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setError(`Compare/Recommend failed: ${message}`);
-      setRequestLog((prev) => [
-        {
-          endpoint: "POST /compare or /recommendations",
-          ok: false,
-          status: 500,
-          durationMs: 0,
-          at: new Date().toISOString(),
-        },
-        ...prev,
-      ].slice(0, 12));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  const snapshotRows = products ? mergeSeriesForChart(products.series) : [];
-  const compareRows = compare
-    ? mergeSeriesForChart(
-        compare.chartSeries.map((s) => ({
-          seriesCode: s.label,
-          label: s.label,
-          unit: "percent",
-          asOf: "",
-          data: s.data,
-        }))
-      )
-    : [];
-
-  const recommendedOption = compare?.options.find(
-    (item) => item.label === recommendation?.recommendation.primaryChoice
-  );
+  const recommendedOption = compare?.options.find((item) => item.label === recommendation?.recommendation.primaryChoice);
   const alternativeOption = compare?.options.find(
     (item) => item.label === recommendation?.recommendation.nextBestAlternative
   );
 
+  const hasCompare = Boolean(compare);
+  const showProductsChart = shouldShowProductsChart(category, hasCompare);
+  const showCompareChart = shouldShowCompareChart(category, hasCompare);
+  const safeProducts = products?.category === category ? products : null;
+
   const scenarioSummary = Object.entries(criteria[category] || {})
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
     .join(" | ");
-
-  const showProductsChart = category !== "credit-cards" && (!compare || category === "savings");
-  const showCompareChart = category === "mortgages" && Boolean(compare);
 
   return (
     <div style={{ fontFamily: "Georgia, serif", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
@@ -217,8 +57,20 @@ export function Dashboard({ config }: DashboardProps) {
       <p style={{ marginTop: 8, color: "#444" }}>Compare UK financial options with live data and AI guidance.</p>
 
       {error && (
-        <div style={{ background: "#fff6f6", border: "1px solid #e58", padding: 10, borderRadius: 8 }}>
-          {error}
+        <div style={{ background: "#fff6f6", border: "1px solid #e58", padding: 10, borderRadius: 8 }}>{error}</div>
+      )}
+
+      {submitting && (
+        <div
+          style={{
+            marginTop: 10,
+            background: "#eef5ff",
+            border: "1px solid #a6c4ff",
+            padding: 10,
+            borderRadius: 8,
+          }}
+        >
+          Analyzing your scenario and preparing recommendation...
         </div>
       )}
 
@@ -238,16 +90,16 @@ export function Dashboard({ config }: DashboardProps) {
       {category === "credit-cards" ? (
         <CreditCardsForm
           criteria={criteria[category]}
-          onChange={updateCriterion}
-          onSubmit={submitCompare}
+          onChange={(key, value) => updateCriterion(category, key, value)}
+          onSubmit={submitCompareAndRecommend}
           disabled={submitting || loadingProducts}
         />
       ) : (
         <CriteriaForm
           category={category}
           criteria={criteria[category]}
-          onChange={updateCriterion}
-          onSubmit={submitCompare}
+          onChange={(key, value) => updateCriterion(category, key, value)}
+          onSubmit={submitCompareAndRecommend}
           disabled={submitting || loadingProducts}
         />
       )}
@@ -282,30 +134,26 @@ export function Dashboard({ config }: DashboardProps) {
           title={
             category === "savings"
               ? "Savings vs inflation trend"
-              : compare
+              : hasCompare
                 ? "Trend context for your recommendation"
                 : "Current market snapshot"
           }
           rows={snapshotRows}
-          labels={products?.series.map((s) => s.label) ?? []}
+          labels={safeProducts?.series.map((s) => s.label) ?? []}
           emptyText={loadingProducts ? "Loading snapshot..." : "No snapshot data"}
         />
       )}
 
       {category === "credit-cards" && compare && (
         <section style={{ marginTop: 18, border: "1px solid #ebeef3", borderRadius: 10, padding: 12 }}>
-          <strong>What-if:</strong> If you move to paying your balance in full, reward-focused card types
-          typically become more attractive than debt-control types.
+          <strong>What-if:</strong> If you move to paying your balance in full, reward-focused card types typically
+          become more attractive than debt-control types.
         </section>
       )}
 
       {showCompareChart && compare && (
         <section style={{ marginTop: 24 }}>
-          <TrendChart
-            title="Compared options trend"
-            rows={compareRows}
-            labels={compare.chartSeries.map((s) => s.label)}
-          />
+          <TrendChart title="Compared options trend" rows={compareRows} labels={compare.chartSeries.map((s) => s.label)} />
 
           {snapshotRows.length > 0 && (
             <details style={{ marginTop: 12 }}>
@@ -313,7 +161,7 @@ export function Dashboard({ config }: DashboardProps) {
               <TrendChart
                 title="Full mortgage market context"
                 rows={snapshotRows}
-                labels={products?.series.map((s) => s.label) ?? []}
+                labels={safeProducts?.series.map((s) => s.label) ?? []}
               />
             </details>
           )}
@@ -324,7 +172,7 @@ export function Dashboard({ config }: DashboardProps) {
         apiBaseUrl={config.apiBaseUrl}
         category={category}
         criteria={criteria[category]}
-        products={products}
+        products={safeProducts}
         compare={compare}
         recommendation={recommendation}
         requestLog={requestLog}

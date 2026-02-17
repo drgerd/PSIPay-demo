@@ -17,7 +17,7 @@ function parseDateInput(raw?: string): Date | undefined {
 export async function getLiveProducts(
   category: Category,
   query?: { from?: string; to?: string },
-  options?: { skipCache?: boolean; months?: number }
+  options?: { months?: number }
 ): Promise<ProductsResponse> {
   const from = parseDateInput(query?.from);
   const to = parseDateInput(query?.to);
@@ -31,7 +31,6 @@ export async function getLiveProducts(
         from,
         to,
         months: fetchMonths,
-        skipCache: options?.skipCache,
       }
     );
     const trimmed = series.map((s) => ({ ...s, data: takeLastMonths(s.data, months) }));
@@ -43,13 +42,11 @@ export async function getLiveProducts(
       from,
       to,
       months: fetchMonths,
-      skipCache: options?.skipCache,
     });
     const ons = await fetchOnsCpihYoY({
       from,
       to,
       months: fetchMonths,
-      skipCache: options?.skipCache,
     });
     const savings = boe.series[0];
     if (!savings) throw new Error("boe_missing_savings_series");

@@ -55,7 +55,6 @@ export async function fetchOnsCpihYoY(options?: {
   from?: Date;
   to?: Date;
   months?: number;
-  skipCache?: boolean;
 }): Promise<{ series: SeriesItem; stale: boolean }> {
   const version = process.env.ONS_CPIH_VERSION || "66";
   const url =
@@ -65,7 +64,6 @@ export async function fetchOnsCpihYoY(options?: {
   const { value: cached, stale } = await cachedFetchJson<{ asOf: string; series: SeriesItem }>({
     cacheKey: `ons:${url}`,
     ttlSeconds: 7 * 24 * 60 * 60,
-    skipCache: options?.skipCache,
     fetchFresh: async () => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`ons_fetch_failed:${res.status}`);

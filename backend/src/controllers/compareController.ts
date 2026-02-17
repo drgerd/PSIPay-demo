@@ -5,8 +5,7 @@ type Criteria = Record<string, unknown>;
 
 export async function compareOptions(
   category: Category,
-  criteria: Criteria,
-  options?: { skipCache?: boolean }
+  criteria: Criteria
 ): Promise<CompareResponse> {
-  return buildLiveCompare(category, criteria, options);
+  return buildLiveCompare(category, criteria);
 }

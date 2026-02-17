@@ -35,16 +35,6 @@ function isCategory(value: unknown): value is Category {
   return value === "mortgages" || value === "savings" || value === "credit-cards";
 }
 
-function readBooleanQueryParam(
-  event: APIGatewayProxyEvent,
-  name: string
-): boolean {
-  const raw = event.queryStringParameters?.[name];
-  if (!raw) return false;
-  const v = raw.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes" || v === "on";
-}
-
 function readPositiveIntQueryParam(
   event: APIGatewayProxyEvent,
   name: string,
@@ -73,10 +63,6 @@ function readCriteriaFromQuery(event: APIGatewayProxyEvent): Record<string, unkn
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const method = event.httpMethod || "GET";
   const path = event.path || "/";
-  const skipCache =
-    readBooleanQueryParam(event, "skipCache") ||
-    readBooleanQueryParam(event, "noCache") ||
-    readBooleanQueryParam(event, "bypassCache");
 
   if (method === "OPTIONS") return withCors({ statusCode: 204, headers: CORS_HEADERS, body: "" });
 
@@ -98,7 +84,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           to: event.queryStringParameters?.to,
         },
         {
-          skipCache,
           months: horizonMonths,
         }
       );
@@ -109,7 +94,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
       if (!isCategory(body.category)) return errorJson(400, "invalid_category", "Category is invalid.");
 
-      const data = await compareOptions(body.category, body.criteria || {}, { skipCache });
+      const data = await compareOptions(body.category, body.criteria || {});
       return withCors(json(200, data));
     }
 
@@ -117,7 +102,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
       if (!isCategory(body.category)) return errorJson(400, "invalid_category", "Category is invalid.");
 
-      const data = await recommend(body.category, body.criteria || {}, { skipCache });
+      const data = await recommend(body.category, body.criteria || {});
       return withCors(json(200, data));
     }
 
@@ -126,7 +111,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!isCategory(category)) return errorJson(400, "invalid_category", "Category is required.");
 
       const criteria = readCriteriaFromQuery(event);
-      const data = await recommend(category, criteria, { skipCache });
+      const data = await recommend(category, criteria);
       return withCors(json(200, data));
     }
 

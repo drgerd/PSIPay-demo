@@ -6,6 +6,8 @@ set -euo pipefail
 REGION="${AWS_REGION:-eu-central-1}"
 API_PORT="${API_PORT:-3000}"
 DDB_PORT="${DDB_PORT:-8000}"
+CACHE_TABLE_NAME="${CACHE_TABLE_NAME:-Cache}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-psipay-local}"
 
 SAM_BIN="$(command -v sam || true)"
 if [[ -z "${SAM_BIN}" && -x "/home/${USER}/.local/bin/sam" ]]; then
@@ -22,27 +24,58 @@ export PATH="${PWD}/node_modules/esbuild/bin:${PATH}"
 
 if [[ -f scripts/env.local ]]; then
   # shellcheck disable=SC1091
-  source scripts/env.local
+  source <(tr -d '\r' < scripts/env.local)
 fi
 
 echo "Starting DynamoDB Local on :${DDB_PORT}..."
+if ! docker network inspect "${DOCKER_NETWORK}" >/dev/null 2>&1; then
+  docker network create "${DOCKER_NETWORK}" >/dev/null
+fi
+
 if ! docker ps --format '{{.Names}}' | grep -q '^dynamodb-local$'; then
-  docker run -d --rm --name dynamodb-local -p "${DDB_PORT}:8000" amazon/dynamodb-local >/dev/null
+  docker run -d --rm --name dynamodb-local --network "${DOCKER_NETWORK}" -p "${DDB_PORT}:8000" amazon/dynamodb-local >/dev/null
+fi
+
+# DynamoDB Local requires credentials to be present for AWS CLI/SDK calls.
+# Always use local dummy credentials to avoid malformed/real key issues.
+export AWS_REGION="${REGION}"
+export AWS_ACCESS_KEY_ID="dummy"
+export AWS_SECRET_ACCESS_KEY="dummy"
+export CACHE_TABLE_NAME="${CACHE_TABLE_NAME}"
+DDB_LOCAL_ENDPOINT="http://127.0.0.1:${DDB_PORT}"
+
+# Wait briefly for DynamoDB Local readiness.
+if command -v aws >/dev/null 2>&1; then
+  for _ in $(seq 1 20); do
+    if aws dynamodb list-tables --endpoint-url "${DDB_LOCAL_ENDPOINT}" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+fi
+
+if command -v aws >/dev/null 2>&1; then
+  if ! aws dynamodb describe-table --table-name "${CACHE_TABLE_NAME}" --endpoint-url "${DDB_LOCAL_ENDPOINT}" >/dev/null 2>&1; then
+    echo "Creating DynamoDB Local table '${CACHE_TABLE_NAME}'..."
+    aws dynamodb create-table \
+      --table-name "${CACHE_TABLE_NAME}" \
+      --attribute-definitions AttributeName=cacheKey,AttributeType=S \
+      --key-schema AttributeName=cacheKey,KeyType=HASH \
+      --billing-mode PAY_PER_REQUEST \
+      --endpoint-url "${DDB_LOCAL_ENDPOINT}" >/dev/null
+    aws dynamodb update-time-to-live \
+      --table-name "${CACHE_TABLE_NAME}" \
+      --time-to-live-specification "Enabled=true,AttributeName=ttlEpoch" \
+      --endpoint-url "${DDB_LOCAL_ENDPOINT}" >/dev/null 2>&1 || true
+  fi
 fi
 
 echo "Building SAM..."
 (cd infra/aws-sam && "${SAM_BIN}" build)
 
 echo "Starting SAM local API on :${API_PORT}..."
-export AWS_REGION="${REGION}"
-export DYNAMODB_ENDPOINT="http://127.0.0.1:${DDB_PORT}"
-export CACHE_TABLE_NAME="Cache"
 
-# DynamoDB Local requires credentials to be present.
-export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-dummy}"
-export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-dummy}"
-
-(cd infra/aws-sam && "${SAM_BIN}" local start-api --port "${API_PORT}") &
+(cd infra/aws-sam && "${SAM_BIN}" local start-api --port "${API_PORT}" --docker-network "${DOCKER_NETWORK}" --parameter-overrides "DynamoDbEndpoint=http://dynamodb-local:8000") &
 
 echo "Starting client (Vite)..."
 (cd client && npm install --no-bin-links && npm run dev) &

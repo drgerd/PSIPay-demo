@@ -13,18 +13,51 @@ type CacheGetResult<T> =
 type CachedFetchResult<T> = { value: T; stale: boolean };
 
 const VALUE_ATTR = "valueJson";
+const DEFAULT_CACHE_TABLE_NAME = "Cache";
 
 let _ddbDoc: DynamoDBDocumentClient | null = null;
 let _ddbClient: DynamoDBClient | null = null;
+const _ensuredTables = new Set<string>();
+let _cacheReadWarned = false;
+let _cacheWriteWarned = false;
+
+function resolveDynamoEndpoint(): string | undefined {
+  const explicit = String(process.env.DYNAMODB_ENDPOINT || "").trim();
+  if (explicit) {
+    if (process.env.AWS_SAM_LOCAL === "true") {
+      const normalized = explicit.toLowerCase();
+      if (normalized.includes("127.0.0.1") || normalized.includes("localhost")) {
+        return "http://dynamodb-local:8000";
+      }
+    }
+    return explicit;
+  }
+  if (process.env.AWS_SAM_LOCAL === "true") {
+    // Prefer same-network container DNS, fall back to host gateway.
+    return "http://dynamodb-local:8000";
+  }
+  return undefined;
+}
 
 function ddbDoc(): DynamoDBDocumentClient {
   if (_ddbDoc) return _ddbDoc;
 
   const region = process.env.AWS_REGION || "eu-central-1";
-  const endpoint = process.env.DYNAMODB_ENDPOINT;
+  const endpoint = resolveDynamoEndpoint();
 
   const client = new DynamoDBClient({
     region,
+    ...(endpoint
+      ? {
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID || "dummy",
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "dummy",
+            ...(process.env.AWS_SESSION_TOKEN
+              ? { sessionToken: process.env.AWS_SESSION_TOKEN }
+              : {}),
+          },
+        }
+      : {}),
     ...(endpoint ? { endpoint } : {}),
   });
   _ddbClient = client;
@@ -36,8 +69,9 @@ function ddbDoc(): DynamoDBDocumentClient {
 }
 
 async function ensureLocalTableExists(tableName: string): Promise<void> {
-  const endpoint = process.env.DYNAMODB_ENDPOINT;
+  const endpoint = resolveDynamoEndpoint();
   if (!endpoint) return;
+  if (_ensuredTables.has(tableName)) return;
 
   // Ensure clients are initialized.
   ddbDoc();
@@ -46,6 +80,7 @@ async function ensureLocalTableExists(tableName: string): Promise<void> {
 
   try {
     await client.send(new DescribeTableCommand({ TableName: tableName }));
+    _ensuredTables.add(tableName);
     return;
   } catch {
     // fall through and attempt create
@@ -60,15 +95,18 @@ async function ensureLocalTableExists(tableName: string): Promise<void> {
         KeySchema: [{ AttributeName: "cacheKey", KeyType: "HASH" }],
       })
     );
+    _ensuredTables.add(tableName);
   } catch (err) {
-    if (err instanceof ResourceInUseException) return;
+    if (err instanceof ResourceInUseException) {
+      _ensuredTables.add(tableName);
+      return;
+    }
     throw err;
   }
 }
 
 function tableName(): string {
-  // Cache is only enabled when explicitly configured.
-  return String(process.env.CACHE_TABLE_NAME || "").trim();
+  return String(process.env.CACHE_TABLE_NAME || DEFAULT_CACHE_TABLE_NAME).trim();
 }
 
 async function cacheGet<T>(cacheKey: string): Promise<CacheGetResult<T>> {
@@ -115,17 +153,20 @@ async function cachePut(cacheKey: string, value: unknown, ttlSeconds: number): P
 export async function cachedFetchJson<T>(args: {
   cacheKey: string;
   ttlSeconds: number;
-  skipCache?: boolean;
   fetchFresh: () => Promise<T>;
 }): Promise<CachedFetchResult<T>> {
-  const { cacheKey, ttlSeconds, skipCache = false, fetchFresh } = args;
+  const { cacheKey, ttlSeconds, fetchFresh } = args;
 
-  if (!skipCache) {
-    try {
-      const hit = await cacheGet<T>(cacheKey);
-      if (hit.hit) return { value: hit.value, stale: false };
-    } catch {
-      // Cache read failures should not break the request.
+  try {
+    const hit = await cacheGet<T>(cacheKey);
+    if (hit.hit) {
+      return { value: hit.value, stale: false };
+    }
+  } catch (err) {
+    // Cache read failures should not break the request.
+    if (!_cacheReadWarned) {
+      _cacheReadWarned = true;
+      console.warn(`[cache] read failure: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -133,17 +174,21 @@ export async function cachedFetchJson<T>(args: {
     const fresh = await fetchFresh();
     try {
       await cachePut(cacheKey, fresh, ttlSeconds);
-    } catch {
+    } catch (err) {
       // Ignore cache write failures.
+      if (!_cacheWriteWarned) {
+        _cacheWriteWarned = true;
+        console.warn(`[cache] write failure: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
     return { value: fresh, stale: false };
   } catch (err) {
-    if (skipCache) throw err;
-
     // Upstream failure: attempt stale fallback.
     try {
       const hit = await cacheGet<T>(cacheKey);
-      if (hit.hit) return { value: hit.value, stale: true };
+      if (hit.hit) {
+        return { value: hit.value, stale: true };
+      }
     } catch {
       // ignore
     }

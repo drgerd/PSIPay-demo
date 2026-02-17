@@ -67,7 +67,7 @@ function defaultRange(months = 12): { from: Date; to: Date } {
 
 export async function fetchBoeSeries(
   seriesCodes: string[],
-  options?: { from?: Date; to?: Date; months?: number; skipCache?: boolean }
+  options?: { from?: Date; to?: Date; months?: number }
 ): Promise<{ series: SeriesItem[]; stale: boolean }> {
   const baseUrl =
     process.env.BOE_BASE_URL ||
@@ -93,7 +93,6 @@ export async function fetchBoeSeries(
   const { value: cached, stale } = await cachedFetchJson<{ series: SeriesItem[]; asOf: string }>({
     cacheKey: `boe:${url}`,
     ttlSeconds: 24 * 60 * 60,
-    skipCache: options?.skipCache,
     fetchFresh: async () => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`boe_fetch_failed:${res.status}`);

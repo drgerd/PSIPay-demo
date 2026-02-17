@@ -83,7 +83,6 @@ node -e "fetch('http://127.0.0.1:3000/health').then(r=>r.json()).then(console.lo
 
 ## API Conventions
 
-- Cache bypass: `?skipCache=1` on any endpoint.
 - History window:
   - products: `GET /products/{category}?horizonMonths=12`
   - compare/recommend: uses `criteria.horizonMonths`.
