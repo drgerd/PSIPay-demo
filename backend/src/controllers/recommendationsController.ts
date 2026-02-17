@@ -26,11 +26,15 @@ export async function recommend(
   }
 
   const optionLabels = new Set(compare.options.map((o) => o.label));
-  const primaryChoice = optionLabels.has(ai.value.primaryChoice)
-    ? ai.value.primaryChoice
-    : deterministic.recommendation.primaryChoice;
-  const nextBestAlternative =
-    optionLabels.has(ai.value.nextBestAlternative) && ai.value.nextBestAlternative !== primaryChoice
+  const keepDeterministicRanking = category === "credit-cards";
+  const primaryChoice = keepDeterministicRanking
+    ? deterministic.recommendation.primaryChoice
+    : optionLabels.has(ai.value.primaryChoice)
+      ? ai.value.primaryChoice
+      : deterministic.recommendation.primaryChoice;
+  const nextBestAlternative = keepDeterministicRanking
+    ? deterministic.recommendation.nextBestAlternative
+    : optionLabels.has(ai.value.nextBestAlternative) && ai.value.nextBestAlternative !== primaryChoice
       ? ai.value.nextBestAlternative
       : deterministic.recommendation.nextBestAlternative;
 

@@ -17,6 +17,11 @@ function prettyMetricName(key: string): string {
     fit_score: "Fit score",
     est_annual_interest_cost: "Estimated annual interest",
     est_annual_rewards_value: "Estimated annual rewards",
+    score: "Score",
+    estimated_annual_value: "Estimated annual net value",
+    estimated_annual_rewards: "Estimated annual rewards",
+    estimated_annual_interest_cost: "Estimated annual interest cost",
+    assumed_annual_fee: "Assumed annual fee",
   };
   return labels[key] || key.replace(/_/g, " ");
 }

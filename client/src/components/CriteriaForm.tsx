@@ -3,7 +3,7 @@ import type { Category } from "../types/api";
 type CriteriaFormProps = {
   category: Category;
   criteria: Record<string, unknown>;
-  onChange: (key: string, value: string) => void;
+  onChange: (key: string, value: unknown) => void;
   onSubmit: () => void;
   disabled?: boolean;
 };
@@ -18,8 +18,6 @@ function prettyKey(key: string): string {
     deposit: "Deposit amount",
     access: "Access needs",
     monthlySpend: "Monthly spend",
-    revolveBehavior: "Repayment behavior",
-    preference: "Preference",
   };
   return labels[key] || key;
 }

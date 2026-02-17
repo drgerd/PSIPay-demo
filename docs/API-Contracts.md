@@ -50,6 +50,27 @@ Request:
 }
 ```
 
+Credit-cards request example:
+
+```json
+{
+  "category": "credit-cards",
+  "criteria": {
+    "monthlySpend": 1400,
+    "payInFullMonthly": false,
+    "carryDebt": true,
+    "carryDebtAmount": 2500,
+    "topCategories": ["groceries", "travel", "general"],
+    "primaryGoal": "minimize interest"
+  }
+}
+```
+
+Credit-cards response notes:
+- `options` includes 3-5 card types ranked by deterministic score
+- `chartSeries` is empty for credit-cards (no irrelevant trend chart)
+- `assumptions` always includes scoring assumptions
+
 Response (shape):
 
 ```json

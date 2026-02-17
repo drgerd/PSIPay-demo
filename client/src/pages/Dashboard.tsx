@@ -3,6 +3,7 @@ import type { AppConfig } from "../api/config";
 import { apiGet, apiPost } from "../api/http";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { CriteriaForm } from "../components/CriteriaForm";
+import { CreditCardsForm } from "../components/CreditCardsForm";
 import { DeveloperDiagnostics } from "../components/DeveloperDiagnostics";
 import { InsightsPanel } from "../components/InsightsPanel";
 import { TrendChart } from "../components/TrendChart";
@@ -42,8 +43,11 @@ const defaultCriteria: Record<Category, Record<string, unknown>> = {
   },
   "credit-cards": {
     monthlySpend: 1200,
-    revolveBehavior: "carry-sometimes",
-    preference: "low-cost",
+    payInFullMonthly: true,
+    carryDebt: false,
+    carryDebtAmount: 0,
+    topCategories: ["general"],
+    primaryGoal: "maximize rewards",
   },
 };
 
@@ -116,13 +120,12 @@ export function Dashboard({ config }: DashboardProps) {
       .finally(() => setLoadingProducts(false));
   }, [category, config.apiBaseUrl, horizonMonths]);
 
-  function updateCriterion(key: string, value: string) {
-    const normalized: unknown = value !== "" && !Number.isNaN(Number(value)) ? Number(value) : value;
+  function updateCriterion(key: string, value: unknown) {
     setCriteria((prev) => ({
       ...prev,
       [category]: {
         ...prev[category],
-        [key]: normalized,
+        [key]: value,
       },
     }));
   }
@@ -202,7 +205,7 @@ export function Dashboard({ config }: DashboardProps) {
   );
 
   const scenarioSummary = Object.entries(criteria[category] || {})
-    .map(([k, v]) => `${k}: ${String(v)}`)
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
     .join(" | ");
 
   return (
@@ -229,13 +232,22 @@ export function Dashboard({ config }: DashboardProps) {
         </label>
       </div>
 
-      <CriteriaForm
-        category={category}
-        criteria={criteria[category]}
-        onChange={updateCriterion}
-        onSubmit={submitCompare}
-        disabled={submitting || loadingProducts}
-      />
+      {category === "credit-cards" ? (
+        <CreditCardsForm
+          criteria={criteria[category]}
+          onChange={updateCriterion}
+          onSubmit={submitCompare}
+          disabled={submitting || loadingProducts}
+        />
+      ) : (
+        <CriteriaForm
+          category={category}
+          criteria={criteria[category]}
+          onChange={updateCriterion}
+          onSubmit={submitCompare}
+          disabled={submitting || loadingProducts}
+        />
+      )}
 
       <section
         style={{
@@ -262,14 +274,23 @@ export function Dashboard({ config }: DashboardProps) {
         </section>
       )}
 
-      <TrendChart
-        title={compare ? "Trend context for your recommendation" : "Current market snapshot"}
-        rows={snapshotRows}
-        labels={products?.series.map((s) => s.label) ?? []}
-        emptyText={loadingProducts ? "Loading snapshot..." : "No snapshot data"}
-      />
+      {category !== "credit-cards" && (
+        <TrendChart
+          title={compare ? "Trend context for your recommendation" : "Current market snapshot"}
+          rows={snapshotRows}
+          labels={products?.series.map((s) => s.label) ?? []}
+          emptyText={loadingProducts ? "Loading snapshot..." : "No snapshot data"}
+        />
+      )}
 
-      {compare && (
+      {category === "credit-cards" && compare && (
+        <section style={{ marginTop: 18, border: "1px solid #ebeef3", borderRadius: 10, padding: 12 }}>
+          <strong>What-if:</strong> If you move to paying your balance in full, reward-focused card types
+          typically become more attractive than debt-control types.
+        </section>
+      )}
+
+      {compare && category !== "credit-cards" && (
         <section style={{ marginTop: 24 }}>
           <TrendChart
             title="Compared options trend"

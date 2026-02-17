@@ -92,10 +92,20 @@ function normalizeRecommendation(raw: unknown): GeminiRecommendation {
 }
 
 function buildPrompt(category: Category, compare: CompareResponse, criteria: Criteria): string {
+  const categorySpecificRules =
+    category === "credit-cards"
+      ? [
+          "For credit cards: explain the deterministic ranking only; do not re-rank options.",
+          "Keep rationale in plain language for a non-expert user.",
+          "Include a short what-if caveat tied to pay-in-full vs carrying debt.",
+        ]
+      : [];
+
   return [
     "You are a UK personal finance decision assistant.",
     "Use ONLY the provided deterministic metrics and trends. Do not invent numbers.",
     "Return JSON only (no markdown).",
+    ...categorySpecificRules,
     "",
     `Category: ${category}`,
     `Criteria: ${JSON.stringify(criteria)}`,
