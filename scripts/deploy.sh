@@ -13,6 +13,7 @@ BUCKET_NAME=""
 LOGS_RETENTION_DAYS="14"
 API_THROTTLE_RATE_LIMIT="5"
 API_THROTTLE_BURST_LIMIT="10"
+ALLOW_CLIENT_GEMINI_KEY="true"
 
 SAM_BIN="$(command -v sam || true)"
 if [[ -z "${SAM_BIN}" && -x "/home/${USER}/.local/bin/sam" ]]; then
@@ -41,6 +42,8 @@ while [[ $# -gt 0 ]]; do
       API_THROTTLE_RATE_LIMIT="$2"; shift 2 ;;
     --api-throttle-burst)
       API_THROTTLE_BURST_LIMIT="$2"; shift 2 ;;
+    --allow-client-gemini-key)
+      ALLOW_CLIENT_GEMINI_KEY="$2"; shift 2 ;;
     *)
       echo "Unknown arg: $1" >&2
       exit 2
@@ -75,6 +78,7 @@ echo "Deploying SAM stack '${STACK_NAME}' to ${REGION}..."
     LogsRetentionDays="${LOGS_RETENTION_DAYS}" \
     ApiThrottleRateLimit="${API_THROTTLE_RATE_LIMIT}" \
     ApiThrottleBurstLimit="${API_THROTTLE_BURST_LIMIT}" \
+    AllowClientGeminiKey="${ALLOW_CLIENT_GEMINI_KEY}" \
   )
 
 API_BASE_URL=$(aws cloudformation describe-stacks \

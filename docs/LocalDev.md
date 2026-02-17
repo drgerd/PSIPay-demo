@@ -71,4 +71,4 @@ For local dev, Vite serves a local `public/config.json`.
 Once running:
 - `GET /products/mortgages`
 - `POST /compare` (mortgages)
-- `POST /recommendations`
+- `GET /recommendations?category=mortgages&criteria=%7B%22loanAmount%22%3A200000%2C%22horizonMonths%22%3A24%7D`

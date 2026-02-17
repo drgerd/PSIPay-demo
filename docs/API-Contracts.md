@@ -2,7 +2,7 @@
 
 Auth model:
 - `GET /health` is public.
-- `GET /products/{category}`, `POST /compare`, `POST/GET /recommendations` require
+- `GET /products/{category}`, `POST /compare`, `GET /recommendations` require
   `Authorization: Bearer <Cognito IdToken>`.
 
 All responses include:
@@ -117,14 +117,15 @@ Response (shape):
 }
 ```
 
-## 3) `/recommendations`
+## 3) GET `/recommendations`
 
-Supports both:
-- `POST /recommendations` with body (same as `/compare`)
-- `GET /recommendations?category=<category>&criteria=<url-encoded-json>`
+Request query:
+- `category=<mortgages|savings|credit-cards>`
+- `criteria=<url-encoded-json>`
 
 Header:
 - `Authorization: Bearer <id-token>`
+- Optional demo override: `X-Gemini-Api-Key: <your-key>` (used only when backend allows client override)
 
 Response: deterministic compare output + AI payload (no debug data returned).
 
@@ -147,7 +148,7 @@ Response: deterministic compare output + AI payload (no debug data returned).
   "ai": {
     "used": true,
     "fallback": false,
-    "model": "gemini-1.5-flash-latest"
+    "model": "gemini-2.0-flash"
   },
   "compare": { "...": "deterministic payload (same shape as /compare)" }
 }

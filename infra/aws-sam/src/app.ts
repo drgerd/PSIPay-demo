@@ -9,7 +9,7 @@ import { validateCriteriaByCategory } from "../../../backend/src/validation/crit
 
 const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "content-type,authorization",
+  "access-control-allow-headers": "content-type,authorization,x-gemini-api-key",
   "access-control-allow-methods": "GET,POST,OPTIONS",
 };
 
@@ -59,6 +59,14 @@ function readCriteriaFromQuery(event: APIGatewayProxyEvent): Record<string, unkn
   } catch {
     throw new Error("invalid_criteria_query_json");
   }
+}
+
+function readGeminiApiKeyOverride(event: APIGatewayProxyEvent): string | undefined {
+  const headers = event.headers || {};
+  const raw = headers["x-gemini-api-key"] || headers["X-Gemini-Api-Key"];
+  if (!raw) return undefined;
+  const value = String(raw).trim();
+  return value ? value : undefined;
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -118,17 +126,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return done(withCors(json(200, data)));
     }
 
-    if (method === "POST" && path === "/recommendations") {
-      const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
-      if (!isCategory(body.category)) return done(errorJson(400, "invalid_category", "Category is invalid."));
-
-      const validation = validateCriteriaByCategory(body.category, body.criteria || {});
-      if (!validation.ok) return done(errorJson(400, validation.errorCode, validation.message));
-
-      const data = await recommend(body.category, body.criteria || {});
-      return done(withCors(json(200, data)));
-    }
-
     if (method === "GET" && path === "/recommendations") {
       const category = event.queryStringParameters?.category;
       if (!isCategory(category)) return done(errorJson(400, "invalid_category", "Category is required."));
@@ -137,7 +134,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const validation = validateCriteriaByCategory(category, criteria);
       if (!validation.ok) return done(errorJson(400, validation.errorCode, validation.message));
 
-      const data = await recommend(category, criteria);
+      const data = await recommend(category, criteria, {
+        geminiApiKeyOverride: readGeminiApiKeyOverride(event),
+      });
       return done(withCors(json(200, data)));
     }
 

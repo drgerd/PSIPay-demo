@@ -28,6 +28,13 @@ Parameters:
     Type: Number
     Default: 10
     Description: "API Gateway burst requests limit"
+  AllowClientGeminiKey:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: "Allow client-provided Gemini API key via X-Gemini-Api-Key header"
 
 Globals:
   Function:
@@ -41,6 +48,7 @@ Globals:
         DEFAULT_HISTORY_MONTHS: '12'
         ONS_CPIH_VERSION: '66'
         GEMINI_API_KEY: !Ref GeminiApiKey
+        ALLOW_CLIENT_GEMINI_KEY: !Ref AllowClientGeminiKey
 
 Resources:
   ApiGateway:
@@ -50,7 +58,7 @@ Resources:
       Cors:
         AllowOrigin: "'*'"
         AllowMethods: "'GET,POST,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization'"
+        AllowHeaders: "'Content-Type,Authorization,X-Gemini-Api-Key'"
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
         AddDefaultAuthorizerToCorsPreflight: false
@@ -87,12 +95,6 @@ Resources:
           Properties:
             RestApiId: !Ref ApiGateway
             Path: /compare
-            Method: POST
-        Recommendations:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /recommendations
             Method: POST
         RecommendationsGet:
           Type: Api

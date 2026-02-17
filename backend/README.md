@@ -3,7 +3,7 @@
 Routes:
 - `GET /products/{category}`
 - `POST /compare`
-- `POST /recommendations`
+- `GET /recommendations?category=<category>&criteria=<url-encoded-json>`
 
 Local:
 - DynamoDB Local recommended (see `docs/LocalDev.md`)

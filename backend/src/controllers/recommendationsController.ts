@@ -13,11 +13,12 @@ function publicAiFailureReason(reason: string): string {
 
 export async function recommend(
   category: Category,
-  criteria: Criteria
+  criteria: Criteria,
+  options?: { geminiApiKeyOverride?: string }
 ): Promise<RecommendationsResponse> {
   const compare = await buildLiveCompare(category, criteria);
   const deterministic = buildLiveRecommendation(category, compare, criteria);
-  const ai = await generateGeminiRecommendation(category, compare, criteria);
+  const ai = await generateGeminiRecommendation(category, compare, criteria, options?.geminiApiKeyOverride);
 
   if (!ai.ok) {
     return {

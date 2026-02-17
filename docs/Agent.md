@@ -66,8 +66,7 @@ Frontend:
 Body: `{ "category": "...", "criteria": { ... } }`
 - Returns deterministic comparison table + chart series + assumptions + asOf
 
-3) `POST /recommendations`
-Body same as `/compare`
+3) `GET /recommendations?category=<category>&criteria=<url-encoded-json>`
 - Runs deterministic compare first, then Gemini using computed metrics only
 - Returns strict JSON + `recommendationShort`
 - If AI JSON invalid: one repair retry; else deterministic fallback narrative

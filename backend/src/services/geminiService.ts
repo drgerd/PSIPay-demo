@@ -4,18 +4,22 @@ import { parseAndNormalizeRecommendation } from "./gemini/schema";
 import type { Criteria, GeminiResult } from "./gemini/types";
 
 function pickModel(): string {
-  return process.env.GEMINI_MODEL || "gemini-flash-latest";
+  return process.env.GEMINI_MODEL || "gemini-2.0-flash";
+}
+
+function allowClientGeminiKey(): boolean {
+  return String(process.env.ALLOW_CLIENT_GEMINI_KEY || "false").toLowerCase() === "true";
 }
 
 function geminiTimeoutMs(): number {
-  const defaultTimeout = 35000;
+  const defaultTimeout = process.env.AWS_SAM_LOCAL === "true" ? 35000 : 20000;
   const parsed = Number.parseInt(String(process.env.GEMINI_TIMEOUT_MS || String(defaultTimeout)), 10);
   if (!Number.isFinite(parsed)) return defaultTimeout;
   return Math.max(1000, Math.min(35000, parsed));
 }
 
 function geminiMaxAttempts(): number {
-  const defaultAttempts = 2;
+  const defaultAttempts = process.env.AWS_SAM_LOCAL === "true" ? 2 : 1;
   const parsed = Number.parseInt(String(process.env.GEMINI_MAX_ATTEMPTS || String(defaultAttempts)), 10);
   if (!Number.isFinite(parsed)) return defaultAttempts;
   return Math.max(1, Math.min(2, parsed));
@@ -74,11 +78,13 @@ async function callGemini(model: string, apiKey: string, prompt: string): Promis
 export async function generateGeminiRecommendation(
   category: Category,
   compare: CompareResponse,
-  criteria: Criteria
+  criteria: Criteria,
+  apiKeyOverride?: string
 ): Promise<GeminiResult> {
   const prompt = buildPrompt(category, compare, criteria);
 
-  const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
+  const keyOverride = String(apiKeyOverride || "").trim();
+  const apiKey = allowClientGeminiKey() && keyOverride ? keyOverride : String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) return { ok: false, reason: "gemini_api_key_missing" };
 
   const model = pickModel();

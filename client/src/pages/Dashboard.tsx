@@ -21,6 +21,12 @@ export function Dashboard({ config, authToken, onLogout, onUnauthorized }: Dashb
   const [category, setCategory] = useState<Category>("mortgages");
   const categories = useMemo(() => ["mortgages", "savings", "credit-cards"] as const, []);
   const { criteria, updateCriterion } = useCriteriaState();
+  const [demoGeminiKey, setDemoGeminiKey] = useState("");
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("psipay_demo_gemini_key") || "";
+    setDemoGeminiKey(stored);
+  }, []);
 
   const {
     products,
@@ -35,6 +41,7 @@ export function Dashboard({ config, authToken, onLogout, onUnauthorized }: Dashb
   } = useScenarioData({
     apiBaseUrl: config.apiBaseUrl,
     authToken,
+    geminiApiKeyOverride: demoGeminiKey || undefined,
     onUnauthorized,
     category,
     criteria,
@@ -79,6 +86,37 @@ export function Dashboard({ config, authToken, onLogout, onUnauthorized }: Dashb
         )}
       </div>
       <p style={{ marginTop: 8, color: "#444" }}>Compare UK financial options with live data and AI guidance.</p>
+
+      <details style={{ marginTop: 10, border: "1px solid #e2e7f0", borderRadius: 8, padding: 10 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>Demo AI key (optional)</summary>
+        <p style={{ margin: "8px 0", color: "#444" }}>
+          If the app shows AI fallback (for example, free-tier quota reached), you can paste your own Gemini API key for
+          this browser session. It is sent only with recommendation requests and is not stored on the server. Model:
+          Gemini 2.0 Flash.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            type="password"
+            value={demoGeminiKey}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDemoGeminiKey(next);
+              sessionStorage.setItem("psipay_demo_gemini_key", next);
+            }}
+            placeholder="Paste Gemini API key for demo"
+            style={{ minWidth: 340, maxWidth: 520, width: "100%", padding: 8 }}
+          />
+          <button
+            onClick={() => {
+              setDemoGeminiKey("");
+              sessionStorage.removeItem("psipay_demo_gemini_key");
+            }}
+            style={{ padding: "8px 12px", cursor: "pointer" }}
+          >
+            Clear
+          </button>
+        </div>
+      </details>
 
       {error && (
         <div style={{ background: "#fff6f6", border: "1px solid #e58", padding: 10, borderRadius: 8 }}>{error}</div>

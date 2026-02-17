@@ -106,9 +106,9 @@ npm -w client run test
 Local-only (use `scripts/env.local` or your shell; do not commit secrets):
 
 - `GEMINI_API_KEY` (optional) enables AI explanations in `/recommendations`.
-- `GEMINI_MODEL` (optional) defaults to `gemini-flash-latest`.
-- `GEMINI_TIMEOUT_MS` (optional) defaults to `35000`.
-- `GEMINI_MAX_ATTEMPTS` (optional) defaults to `2` (max `2`).
+- `GEMINI_MODEL` (optional) defaults to `gemini-2.0-flash`.
+- `GEMINI_TIMEOUT_MS` (optional) defaults to `20000` in deployed Lambda; local `dev-sam.sh` sets `35000`.
+- `GEMINI_MAX_ATTEMPTS` (optional) defaults to `1` in deployed Lambda and `2` in local SAM (max `2`).
 
 Provided by SAM/Lambda runtime (you do not need to set manually when deployed):
 
@@ -116,6 +116,7 @@ Provided by SAM/Lambda runtime (you do not need to set manually when deployed):
 - `DEFAULT_HISTORY_MONTHS` (defaults to `12`)
 - `ONS_CPIH_VERSION` (defaults to `66`)
 - `DYNAMODB_ENDPOINT` (set by SAM local only)
+- `ALLOW_CLIENT_GEMINI_KEY` (defaults to `true` in `scripts/deploy.sh` for demo)
 
 Local SAM + DynamoDB Local:
 
@@ -262,13 +263,12 @@ Example response (shape):
 }
 ```
 
-### POST `/recommendations`
+### GET `/recommendations`
 
 ```bash
-curl -s -X POST <api-base-url>/recommendations \
-  -H 'content-type: application/json' \
+curl -s "<api-base-url>/recommendations?category=mortgages&criteria=%7B%22loanAmount%22%3A200000%2C%22horizonMonths%22%3A24%2C%22riskTolerance%22%3A%22prefer-certainty%22%7D" \
   -H 'authorization: Bearer <id-token>' \
-  -d '{"category":"mortgages","criteria":{"loanAmount":200000,"horizonMonths":24,"riskTolerance":"prefer-certainty"}}'
+  -H 'x-gemini-api-key: <optional-demo-gemini-key>'
 ```
 
 Example response (shape):
@@ -297,6 +297,15 @@ Notes:
 - If Gemini is missing/slow/unavailable, the API returns a deterministic fallback.
 - Gemini is explanation-only: deterministic ranking/metrics remain source-of-truth; no invented numbers are allowed.
 - `/health` is intentionally public; all other API routes require a Cognito JWT.
+
+### Demo: Bypass Server Gemini Key From UI
+
+For demo/reviewer scenarios, the UI includes an optional field **"Demo AI key (optional)"**.
+
+- Use it when the server-side Gemini key hits free-tier quota or is unavailable.
+- The entered key is sent only with `/recommendations` requests via `X-Gemini-Api-Key`.
+- The key is stored only in browser session storage and is not persisted server-side.
+- The app uses **Gemini 2.0 Flash** (`gemini-2.0-flash`) for AI explanations.
 
 ### Get Cognito IdToken For CLI Tests
 
