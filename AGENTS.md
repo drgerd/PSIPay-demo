@@ -1,264 +1,142 @@
-# AGENTS.md - Development Guide for Psipay
+# AGENTS.md
 
-This file provides guidance for agentic coding agents working in this repository.
+Agent operating guide for this repo.
 
-## Project Overview
+## Project Snapshot
 
-Psipay is a UK financial products comparison platform with:
-- **Backend**: Node.js/TypeScript shared services running on AWS Lambda via SAM
-- **Frontend**: React/Vite SPA
-- **Data Sources**: Bank of England API, ONS CPIH data
+- Backend runtime: AWS Lambda (Node.js/TypeScript) via AWS SAM.
+- Frontend: React + Vite SPA served from S3 static website.
+- Data sources: Bank of England CSV API + ONS CPIH observations.
+- Cache: DynamoDB TTL read-through cache with `stale` fallback.
+- AI: Gemini explains deterministic results (must not invent numbers).
 
-## 1. Build, Lint, and Test Commands
+No Cursor/Copilot instruction files found (`.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`).
 
-### Root Commands (from workspace root)
+## Commands
+
+From repo root:
 
 ```bash
-# Install all dependencies
-npm install
+# Install (WSL/NTFS safe)
+npm install --no-bin-links
 
-# Build both backend and client
+# Build everything
 npm run build
 
-# Run linters (backend + client)
+# Lint (placeholders today)
 npm run lint
-
-# Run tests (placeholder)
-npm test
 ```
 
-### Backend Commands
+Backend build only:
 
 ```bash
-# Development (SAM local)
+npm -w backend run build
+```
+
+Client build/dev:
+
+```bash
+npm -w client run build
+npm -w client run dev
+npm -w client run preview
+```
+
+Local full-stack dev (SAM local + DynamoDB Local + Vite):
+
+```bash
 bash scripts/dev-sam.sh
-
-# Build TypeScript
-cd backend
-npm run build
-
-# Production runtime
-# Deploy via SAM (Lambda + API Gateway)
-
-# Lint (TODO - not implemented)
-npm run lint
 ```
 
-### Frontend Commands
+Deploy (SAM + S3 upload):
 
 ```bash
-cd client
-
-# Development server (hot reload)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint (TODO - not implemented)
-npm run lint
+bash scripts/deploy.sh --stack psipay --bucket <globally-unique-bucket>
 ```
 
-### Running Locally with SAM (Lambda emulation)
+### “Single Test” / Minimal Verification
+
+There is no automated test runner configured right now. Use smoke calls:
 
 ```bash
-# DynamoDB Local must be running first
-docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local
+curl -s http://127.0.0.1:3000/health
+curl -s http://127.0.0.1:3000/products/mortgages
 
-# Build and run SAM
-cd infra/aws-sam
-sam build
-DYNAMODB_ENDPOINT=http://localhost:8000 \
-AWS_ACCESS_KEY_ID=dummy \
-AWS_SECRET_ACCESS_KEY=dummy \
-AWS_REGION=eu-west-2 \
-sam local start-api
+curl -s -X POST http://127.0.0.1:3000/compare \
+  -H 'content-type: application/json' \
+  -d '{"category":"mortgages","criteria":{"loanAmount":200000,"horizonMonths":24}}'
 ```
 
-## 2. Code Style Guidelines
+To verify one scenario quickly inside Node:
 
-### TypeScript Configuration
+```bash
+node -e "fetch('http://127.0.0.1:3000/health').then(r=>r.json()).then(console.log)"
+```
 
-- **Backend**: `backend/tsconfig.json` - CommonJS, strict mode, Node types
-- **Client**: `client/tsconfig.json` - ESNext, React JSX, strict mode
+## Repo Map
 
-Always enable strict mode. Do not use `any` unless absolutely necessary.
+- `infra/aws-sam/template.yaml`: API Gateway, Lambda, DynamoDB, S3 website.
+- `infra/aws-sam/src/app.ts`: Lambda router (`/products`, `/compare`, `/recommendations`, `/health`).
+- `backend/src/data/*`: external API clients (BoE/ONS).
+- `backend/src/services/*`: business logic, caching, comparisons, Gemini.
+- `client/src/pages/Dashboard.tsx`: UI flow for all 3 scenarios.
+- `client/src/components/DeveloperDiagnostics.tsx`: debug panel (collapsed).
+
+## API Conventions
+
+- Cache bypass: `?skipCache=1` on any endpoint.
+- History window:
+  - products: `GET /products/{category}?horizonMonths=12`
+  - compare/recommend: uses `criteria.horizonMonths`.
+- Error responses from Lambda use `{ errorCode, message, details? }`.
+
+## Coding Standards
+
+### TypeScript
+
+- Strict mode stays on; avoid `any`.
+- Prefer explicit return types for exported functions.
+- Use `import type` for type-only imports.
 
 ### Imports
 
-**Order (recommended):**
-1. External libraries (React, AWS SDK, etc.)
-2. Internal modules (relative imports)
-3. Type imports (use `import type`)
+Order:
+1) external
+2) internal relative
+3) `import type`
 
-```typescript
-// Good
-import { useState, useEffect } from "react";
-import type { FC } from "react";
-import { fetchData } from "../services/api";
-import type { User } from "../types";
+### Naming
 
-// Backend example
-import { getProducts } from "./controllers/productsController";
-import type { Category } from "./types/contracts";
-```
-
-### Naming Conventions
-
-- **Files**: kebab-case for everything (`productsController.ts`, `trend-chart.tsx`)
-- **TypeScript types**: PascalCase (`Category`, `ProductsResponse`, `SeriesItem`)
-- **Variables/functions**: camelCase (`getProducts`, `fetchData`, `loanAmount`)
-- **Constants**: SCREAMING_SNAKE_CASE for config values (`DEFAULT_HISTORY_MONTHS`)
-- **React components**: PascalCase (`Dashboard.tsx`, `CriteriaForm.tsx`)
-
-### Type Definitions
-
-- Use explicit types for function parameters and return types
-- Export types alongside implementations when they're part of the public API
-- Use generics when appropriate to avoid type duplication
-
-```typescript
-// Good
-export async function getProducts(
-  category: Category,
-  query?: { from?: string; to?: string }
-): Promise<ProductsResponse> {
-  // ...
-}
-
-// Good - discriminated union for state
-type LoadingState = { status: "loading" };
-type SuccessState<T> = { status: "success"; data: T };
-type ErrorState = { status: "error"; error: Error };
-type AsyncState<T> = LoadingState | SuccessState<T> | ErrorState;
-```
-
-### Error Handling
-
-- Use proper error types, not raw strings
-- Always handle async errors with try/catch
-- Return appropriate HTTP status codes (400 for bad input, 500 for server errors)
-- Log errors appropriately (console.error for now, structured logging planned)
-
-```typescript
-// Good - Lambda handler error handling
-async function handler() {
-  try {
-    const data = await getData();
-    return { statusCode: 200, body: JSON.stringify(data) };
-  } catch (err) {
-    console.error(err);
-    return { statusCode: 500, body: JSON.stringify({ error: "internal_error" }) };
-  }
-}
-```
-
-### React Conventions
-
-- Use functional components with hooks
-- Keep components small and focused
-- Co-locate types with components when only used there
-- Use `import type` for type-only imports to help bundler
-
-```typescript
-// Good
-interface Props {
-  title: string;
-  onSubmit: (data: FormData) => void;
-}
-
-export function MyComponent({ title, onSubmit }: Props) {
-  const [loading, setLoading] = useState(false);
-
-  // ...
-}
-```
+- Files: kebab-case.
+- Types: PascalCase.
+- Functions/vars: camelCase.
+- Config constants: SCREAMING_SNAKE_CASE.
 
 ### Formatting
 
-- Use 2 spaces for indentation
-- Use double quotes for strings in TypeScript/JSX
-- Use semicolons
-- Maximum line length: 100 characters (soft limit)
-- Add trailing commas in multiline objects/arrays
+- 2 spaces; double quotes; semicolons.
+- Keep lines ~100 chars where practical.
 
-### API Response Patterns
+### Error Handling
 
-All API responses should include:
-- `asOf` timestamps when possible
-- `stale` boolean when returning cached data
+- Validate inputs; return 400 for bad input.
+- Use try/catch around network calls.
+- For upstream failures: use cached fallback when available and set `stale: true`.
 
-```typescript
-// Response shape
-{
-  category: "mortgages",
-  stale?: boolean,
-  series: SeriesItem[],
-  // ...
-}
-```
+### AI (Gemini)
 
-### Git Conventions
+- Deterministic engine decides ranking.
+- Gemini may only *explain* the deterministic output.
+- Never invent numbers; prompt includes deterministic outputs.
+- Temporary debug visibility: `recommendation.ai.debug` contains prompt/response/errors and is shown in Developer Diagnostics.
 
-- Use meaningful commit messages
-- Branch naming: `feature/description`, `fix/description`, `docs/description`
-- Run tests before committing
+### Frontend UX
 
-### What NOT Do
+- Show user-facing recommendation first.
+- Keep `DeveloperDiagnostics` collapsed by default.
+- For `credit-cards`, do not show irrelevant trend charts.
 
-- Do not commit secrets To, API keys, or credentials
-- Do not use `// TODO` without a description
-- Do not leave console.log statements in production code
-- Do not disable TypeScript strict mode
-- Do not use relative paths that go up more than 2 levels (`../../`)
+### Secrets
 
-## 3. Key File Locations
-
-```
-psipay/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/   # Route handlers
-│   │   ├── services/     # Business logic
-│   │   ├── data/         # External API clients (BoE, ONS)
-│   │   ├── types/        # TypeScript definitions
-│   │   └── services/     # Shared logic used by Lambda
-│   └── package.json
-├── client/
-│   ├── src/
-│   │   ├── api/          # HTTP client
-│   │   ├── components/   # React components
-│   │   ├── pages/        # Page components
-│   │   └── types/        # TypeScript definitions
-│   ├── public/
-│   │   └── config.json   # Runtime config
-│   └── package.json
-├── infra/aws-sam/        # SAM template
-└── docs/                 # Documentation
-```
-
-## 4. Environment Variables
-
-### Backend (local)
-```
-ONS_CPIH_VERSION=66
-DEFAULT_HISTORY_MONTHS=12
-PORT=3000
-HOST=127.0.0.1
-GEMINI_API_KEY=...  # For /recommendations endpoint
-DYNAMODB_ENDPOINT=http://localhost:8000  # Local development
-AWS_ACCESS_KEY_ID=dummy
-AWS_SECRET_ACCESS_KEY=dummy
-AWS_REGION=eu-central-1
-```
-
-### Frontend Runtime
-```json
-// client/public/config.json
-{
-  "apiBaseUrl": "http://127.0.0.1:3000"
-}
-```
+- Never commit keys.
+- Use `scripts/env.local` (gitignored) for local env.
+- Deployed secrets: SAM parameters/env vars.
