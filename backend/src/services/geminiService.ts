@@ -7,22 +7,49 @@ function pickModel(): string {
   return process.env.GEMINI_MODEL || "gemini-flash-latest";
 }
 
+function geminiTimeoutMs(): number {
+  const parsed = Number.parseInt(String(process.env.GEMINI_TIMEOUT_MS || "8000"), 10);
+  if (!Number.isFinite(parsed)) return 8000;
+  return Math.max(1000, Math.min(25000, parsed));
+}
+
+function geminiMaxAttempts(): number {
+  const parsed = Number.parseInt(String(process.env.GEMINI_MAX_ATTEMPTS || "1"), 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.min(2, parsed));
+}
+
 async function callGemini(model: string, apiKey: string, prompt: string): Promise<string> {
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
     `?key=${encodeURIComponent(apiKey)}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
-      },
-      contents: [{ parts: [{ text: prompt }] }],
-    }),
-  });
+  const timeoutMs = geminiTimeoutMs();
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: "application/json",
+        },
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+      signal: abortController.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`gemini_timeout_${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const body = await response.text();
@@ -54,9 +81,10 @@ export async function generateGeminiRecommendation(
   if (!apiKey) return { ok: false, reason: "gemini_api_key_missing", debug };
 
   const model = pickModel();
+  const attempts = geminiMaxAttempts();
   let lastError = "gemini_unknown_error";
 
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < attempts; i += 1) {
     try {
       const text = await callGemini(model, apiKey, prompt);
       debug.rawResponse = text;
