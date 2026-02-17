@@ -22,6 +22,8 @@ cd client
 npm run dev
 ```
 
+Tip: add `?mocks=1` to the URL to run UI against MSW mocks.
+
 2) Ensure OpenCode is configured to load MCP from `mcp.json` in repo root.
 
 3) Use Chrome debug tools from OpenCode through the `chrome-devtools` MCP server.

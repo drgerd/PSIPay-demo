@@ -1,10 +1,10 @@
-import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import type { APIGatewayProxyResult } from "aws-lambda";
 
 export function json(
   statusCode: number,
   body: unknown,
   headers: Record<string, string> = {}
-): APIGatewayProxyStructuredResultV2 {
+): APIGatewayProxyResult {
   return {
     statusCode,
     headers: {

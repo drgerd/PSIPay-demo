@@ -9,10 +9,12 @@ All responses include:
 Query params:
 - `from` (optional, `YYYY-MM-DD`)
 - `to` (optional, `YYYY-MM-DD`)
+- `horizonMonths` (optional, integer, default `12`)
 
 Behavior:
 - default window: last 12 months
 - normalize points to `YYYY-MM` month and use month-end (last available point in month)
+- if `horizonMonths` is provided, return up to that many months (subject to source availability)
 
 Example response (shape):
 

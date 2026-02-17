@@ -1,0 +1,98 @@
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+
+import { json, readJsonBody } from "./utils/http";
+import { getProducts } from "../../../backend/src/controllers/productsController";
+import { compareOptions } from "../../../backend/src/controllers/compareController";
+import { recommend } from "../../../backend/src/controllers/recommendationsController";
+import type { Category } from "../../../backend/src/types/contracts";
+
+const CORS_HEADERS: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "content-type",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+};
+
+function withCors(res: APIGatewayProxyResult): APIGatewayProxyResult {
+  return { ...res, headers: { ...(res.headers || {}), ...CORS_HEADERS } };
+}
+
+function isCategory(value: unknown): value is Category {
+  return value === "mortgages" || value === "savings" || value === "credit-cards";
+}
+
+function readBooleanQueryParam(
+  event: APIGatewayProxyEvent,
+  name: string
+): boolean {
+  const raw = event.queryStringParameters?.[name];
+  if (!raw) return false;
+  const v = raw.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
+}
+
+function readPositiveIntQueryParam(
+  event: APIGatewayProxyEvent,
+  name: string,
+  min: number,
+  max: number
+): number | undefined {
+  const raw = event.queryStringParameters?.[name];
+  if (!raw) return undefined;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.max(min, Math.min(max, n));
+}
+
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const method = event.httpMethod || "GET";
+  const path = event.path || "/";
+  const skipCache =
+    readBooleanQueryParam(event, "skipCache") ||
+    readBooleanQueryParam(event, "noCache") ||
+    readBooleanQueryParam(event, "bypassCache");
+
+  if (method === "OPTIONS") return withCors({ statusCode: 204, headers: CORS_HEADERS, body: "" });
+
+  try {
+    if (method === "GET" && path.startsWith("/products/")) {
+      const category = decodeURIComponent(path.replace("/products/", ""));
+      if (!isCategory(category)) return withCors(json(400, { error: "invalid_category" }));
+
+      const horizonMonths = readPositiveIntQueryParam(event, "horizonMonths", 1, 360);
+
+      const data = await getProducts(
+        category,
+        {
+          from: event.queryStringParameters?.from,
+          to: event.queryStringParameters?.to,
+        },
+        {
+          skipCache,
+          months: horizonMonths,
+        }
+      );
+      return withCors(json(200, data));
+    }
+
+    if (method === "POST" && path === "/compare") {
+      const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
+      if (!isCategory(body.category)) return withCors(json(400, { error: "invalid_category" }));
+
+      const data = await compareOptions(body.category, body.criteria || {}, { skipCache });
+      return withCors(json(200, data));
+    }
+
+    if (method === "POST" && path === "/recommendations") {
+      const body = readJsonBody<{ category?: string; criteria?: Record<string, unknown> }>(event.body);
+      if (!isCategory(body.category)) return withCors(json(400, { error: "invalid_category" }));
+
+      const data = await recommend(body.category, body.criteria || {}, { skipCache });
+      return withCors(json(200, data));
+    }
+
+    return withCors(json(404, { error: "not_found", path, method }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown_error";
+    return withCors(json(500, { error: "internal_error", message }));
+  }
+}

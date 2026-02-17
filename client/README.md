@@ -2,21 +2,20 @@
 
 Runtime config:
 - `public/config.json` with `apiBaseUrl`
-- `public/config.json` with `useMocks` (`true` to run with MSW)
+- `public/config.json` with `useMocks` (`false` to call local/backend API)
 
 Local:
 - `npm install`
-- `npx msw init public --save`
 - `npm run dev`
 
-## Local run (mock-first)
+## Local run (with local Lambda API)
 
 1) Ensure `public/config.json` has:
 
 ```json
 {
   "apiBaseUrl": "http://127.0.0.1:3000",
-  "useMocks": true
+  "useMocks": false
 }
 ```
 
@@ -24,13 +23,13 @@ Local:
 
 ```
 npm install
-npx msw init public --save
 npm run dev
 ```
 
 Notes:
-- With `useMocks: true`, the client serves `/products`, `/compare`, `/recommendations` from mock fixtures.
-- To switch to real backend later, set `useMocks: false` and update `apiBaseUrl`.
+- In this mode, the client calls `/products`, `/compare`, `/recommendations` from the local Node API.
+- Backend calls live BoE/ONS sources by default.
+- Optional: set `useMocks: true` only if you want browser-level MSW interception.
 
 Deploy to S3:
 - `scripts/provision-frontend.*` to create a website bucket (MVP public)

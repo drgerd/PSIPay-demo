@@ -1,6 +1,13 @@
-#+#+#+#+#+#+#+#+assistant to=functions.apply_patch  银航json  万亚}}
-
 # Agent.md - Implementation Plan (Psipay)
+
+## Dependencies Verified
+- Node.js v20.x ✅
+- npm 10.x ✅
+- AWS CLI v2 ✅
+- SAM CLI 1.154.0 ✅ (installed via pipx to `~/.local/bin/sam`)
+- Docker 28.x ✅
+- DynamoDB Local (running on port 8000) ✅
+- Playwright browsers ✅
 
 ## Locked Decisions
 - Market-average (type-level) comparisons (no provider offers)
@@ -41,7 +48,7 @@ Backend:
 - `ONS_CPIH_VERSION` (default `66`)
 - `DEFAULT_HISTORY_MONTHS` (default `12`)
 - `CACHE_TABLE_NAME` (default `Cache`)
-- `AWS_REGION` (default `eu-west-2`)
+- `AWS_REGION` (default `eu-central-1`)
 
 Local DynamoDB:
 - `DYNAMODB_ENDPOINT` (e.g. `http://localhost:8000`)
@@ -94,7 +101,15 @@ Credit cards:
 - Structured logs + surfacing `asOf/stale` to UI
 
 ## Local Run (target workflow)
-1) Start DynamoDB Local (Docker)
-2) Start backend (`sam local start-api`) pointing to DynamoDB Local
-3) Start frontend (Vite) using local `/config.json`
-4) Verify endpoints with sample payloads for mortgages and savings
+1) Start DynamoDB Local (Docker): `docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local`
+2) Build SAM: `sam build`
+3) Start backend (`sam local start-api`) pointing to DynamoDB Local:
+   ```
+   DYNAMODB_ENDPOINT=http://localhost:8000 \
+   AWS_ACCESS_KEY_ID=dummy \
+   AWS_SECRET_ACCESS_KEY=dummy \
+   AWS_REGION=eu-central-1 \
+   sam local start-api
+   ```
+4) Start frontend (Vite): `cd client && npm run dev`
+5) Verify endpoints with sample payloads for mortgages and savings

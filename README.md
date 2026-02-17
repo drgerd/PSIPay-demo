@@ -3,54 +3,53 @@
 Serverless UK financial products comparison platform.
 
 Monorepo:
-- `backend/` AWS SAM (Lambda + API Gateway + DynamoDB cache)
+- `backend/` shared TypeScript business/data logic used by Lambda handlers
 - `client/` Vite SPA (local dev + deploy to S3)
 - `docs/` planning/architecture notes
+- `infra/aws-sam/` AWS SAM app (Lambda + API Gateway + DynamoDB + S3 website)
 - `scripts/` local dev + deploy helpers
 
 ## Quick Start (Local)
 
 Prereqs:
 - Node.js 20+
-- Docker Desktop (for DynamoDB Local)
-- AWS SAM CLI
 
-1) Start DynamoDB Local + backend + client:
+1) Start local SAM API (Lambda emulation) + client:
 
 PowerShell:
 
 ```
-powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
+powershell -ExecutionPolicy Bypass -File scripts/dev-sam.ps1
 ```
 
 Or bash:
 
 ```
-bash scripts/dev.sh
+bash scripts/dev-sam.sh
 ```
 
-2) Set `GEMINI_API_KEY` if you want `/recommendations`.
+2) Set `ONS_CPIH_VERSION` if you need a different ONS dataset version.
 
-Client-only (mock mode):
-
-```
-cd client
-npm install
-npx msw init public --save
-npm run dev
-```
-
-Make sure `client/public/config.json` contains `"useMocks": true`.
+Make sure `client/public/config.json` contains `"useMocks": false`.
 
 ## Deploy (High Level)
 
-Backend:
-- `scripts/deploy-backend.ps1` (or `.sh`)
+All resources deploy via SAM (Lambda + API Gateway + DynamoDB cache + S3 website).
 
-Frontend:
-- `scripts/deploy-frontend.ps1` (or `.sh`) to build and `aws s3 sync`
+- Bash: `bash scripts/deploy.sh --stack psipay --bucket <unique-bucket-name>`
+- PowerShell: `powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -StackName psipay -BucketName <unique-bucket-name>`
+
+Notes:
+- Region default: `eu-central-1` (override with `AWS_REGION` or `--region`)
+- Runtime client config is written to `client/dist/config.json` during deploy (no tracked files are mutated)
 
 Docs:
 - Data pipeline rules: `docs/Skills-DataSources.md`
 - API shapes: `docs/API-Contracts.md`
 - OpenCode Chrome MCP debug: `docs/OpenCode-Chrome-Debug.md`
+- OpenCode Playwright validation: `docs/OpenCode-Playwright-Validation.md`
+
+## E2E Validation (Playwright)
+
+- Mock UI smoke: `npm run test:e2e:mock`
+- Local Node API integration: `npm run test:e2e:local-api`

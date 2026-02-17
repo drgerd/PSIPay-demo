@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Psipay backend (API + cache)
+
+Parameters:
+  WebsiteBucketName:
+    Type: String
+    Description: "Unique S3 bucket name for SPA hosting"
+    Default: "psipay-local-website"
+  GeminiApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: "Optional Gemini API key (used by /recommendations when enabled)"
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        CACHE_TABLE_NAME: !Ref CacheTable
+        DEFAULT_HISTORY_MONTHS: '12'
+        ONS_CPIH_VERSION: '66'
+        GEMINI_API_KEY: !Ref GeminiApiKey
+
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Tags:
+        psipay: "true"
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: app.handler
+      Tags:
+        psipay: "true"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CacheTable
+      Events:
+        Products:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /products/{category}
+            Method: GET
+        Compare:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /compare
+            Method: POST
+        Recommendations:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /recommendations
+            Method: POST
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/app.ts
+        Format: cjs
+        Minify: true
+        Target: es2020
+        Sourcemap: true
+
+  CacheTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: cacheKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cacheKey
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttlEpoch
+        Enabled: true
+      Tags:
+        - Key: psipay
+          Value: "true"
+
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref WebsiteBucketName
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      Tags:
+        - Key: psipay
+          Value: "true"
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${WebsiteBucket}/*"
+
+Outputs:
+  ApiBaseUrl:
+    Description: API base URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+
+  WebsiteUrl:
+    Description: S3 static website URL
+    Value: !Sub "http://${WebsiteBucket}.s3-website.${AWS::Region}.amazonaws.com"

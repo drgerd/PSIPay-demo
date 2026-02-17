@@ -14,6 +14,14 @@ build/
 # Vite/React
 client/dist/
 
+# Playwright artifacts
+playwright-report/
+test-results/
+
+# Local-only secrets/env
+scripts/env.local
+
+
 # Env / secrets
 .env
 .env.*

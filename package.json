@@ -5,9 +5,18 @@
     "backend",
     "client"
   ],
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@types/aws-lambda": "^8.10.152",
+    "esbuild": "^0.25.0"
+  },
   "scripts": {
-    "dev": "node -e \"console.log('Use scripts/dev.ps1 (Windows) or scripts/dev.sh (bash).')\"",
+    "dev": "node -e \"console.log('Use scripts/dev-sam.ps1 (Windows) or scripts/dev-sam.sh (bash).')\"",
     "build": "npm -w backend run build && npm -w client run build",
-    "lint": "npm -w backend run lint && npm -w client run lint"
+    "lint": "npm -w backend run lint && npm -w client run lint",
+    "e2e:install": "playwright install",
+    "test:e2e": "npm -w client run build && playwright test",
+    "test:e2e:mock": "npm -w client run build && playwright test --config=playwright.config.js",
+    "test:e2e:local-api": "npm -w client run build && playwright test --config=playwright.local-api.config.js"
   }
 }

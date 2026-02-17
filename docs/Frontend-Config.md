@@ -10,7 +10,8 @@ Example:
 
 ```json
 {
-  "apiBaseUrl": "https://YOUR_API_GATEWAY_ID.execute-api.eu-west-2.amazonaws.com/Prod"
+  "apiBaseUrl": "https://YOUR_API_GATEWAY_ID.execute-api.eu-west-2.amazonaws.com/Prod",
+  "useMocks": false
 }
 ```
 
@@ -18,7 +19,8 @@ Local dev example:
 
 ```json
 {
-  "apiBaseUrl": "http://127.0.0.1:3000"
+  "apiBaseUrl": "http://127.0.0.1:3000",
+  "useMocks": false
 }
 ```
 

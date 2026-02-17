@@ -2,16 +2,17 @@
   "name": "psipay-backend",
   "private": true,
   "scripts": {
-    "build": "sam build",
+    "dev": "node -e \"console.log('Backend runs via AWS SAM. Use scripts/dev-sam.sh or scripts/dev-sam.ps1.')\"",
+    "build": "tsc -p tsconfig.json",
+    "start": "node -e \"console.log('Backend runs via AWS SAM (Lambda).')\"",
     "lint": "node -e \"console.log('lint: TODO')\""
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.758.0",
-    "@aws-sdk/lib-dynamodb": "^3.758.0",
-    "ajv": "^8.17.1"
+    "@aws-sdk/client-dynamodb": "^3.888.0",
+    "@aws-sdk/lib-dynamodb": "^3.888.0"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.147",
+    "@types/node": "^22.13.9",
     "typescript": "^5.7.3"
   }
 }

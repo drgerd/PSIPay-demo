@@ -62,17 +62,23 @@ export function Dashboard({ config }: DashboardProps) {
   const [error, setError] = useState<string>("");
 
   const categories = useMemo(() => ["mortgages", "savings", "credit-cards"] as const, []);
+  const horizonMonths = useMemo(() => {
+    const raw = criteria[category]?.horizonMonths;
+    const n = typeof raw === "number" ? raw : Number.parseInt(String(raw ?? ""), 10);
+    if (!Number.isFinite(n)) return 12;
+    return Math.max(1, Math.min(360, Math.round(n)));
+  }, [category, criteria]);
 
   useEffect(() => {
     setError("");
     setLoadingProducts(true);
     setCompare(null);
     setRecommendation(null);
-    apiGet(config.apiBaseUrl, `/products/${category}`)
+    apiGet(config.apiBaseUrl, `/products/${category}?horizonMonths=${horizonMonths}`)
       .then((res) => setProducts(res as ProductsResponse))
       .catch((e) => setError(String(e)))
       .finally(() => setLoadingProducts(false));
-  }, [category, config.apiBaseUrl]);
+  }, [category, config.apiBaseUrl, horizonMonths]);
 
   function updateCriterion(key: string, value: string) {
     const normalized: unknown = value !== "" && !Number.isNaN(Number(value)) ? Number(value) : value;
