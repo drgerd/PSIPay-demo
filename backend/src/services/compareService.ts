@@ -290,6 +290,11 @@ export function buildLiveRecommendation(
     },
     disclaimer: "Educational, not financial advice.",
     dataFreshnessNote: "Uses latest available source timestamps from current fetch.",
+    ai: {
+      used: false,
+      fallback: true,
+      reason: "deterministic_recommendation",
+    },
     compare,
   };
 }

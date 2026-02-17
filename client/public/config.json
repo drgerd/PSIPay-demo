@@ -1,4 +1,3 @@
 {
-  "apiBaseUrl": "http://127.0.0.1:3000",
-  "useMocks": false
+  "apiBaseUrl": "http://127.0.0.1:3000"
 }

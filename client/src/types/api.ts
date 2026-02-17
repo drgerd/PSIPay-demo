@@ -57,5 +57,11 @@ export type RecommendationsResponse = {
   };
   disclaimer: string;
   dataFreshnessNote: string;
+  ai?: {
+    used: boolean;
+    fallback: boolean;
+    model?: string;
+    reason?: string;
+  };
   compare: CompareResponse;
 };

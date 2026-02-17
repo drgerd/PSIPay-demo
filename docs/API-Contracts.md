@@ -82,9 +82,11 @@ Response (shape):
 }
 ```
 
-## 3) POST `/recommendations`
+## 3) `/recommendations`
 
-Request: same as `/compare`.
+Supports both:
+- `POST /recommendations` with body (same as `/compare`)
+- `GET /recommendations?category=<category>&criteria=<url-encoded-json>`
 
 Response: deterministic compare output + AI payload.
 
@@ -101,6 +103,15 @@ Response: deterministic compare output + AI payload.
   },
   "disclaimer": "Educational, not financial advice.",
   "dataFreshnessNote": "BoE data as-of 2026-02-15.",
+  "ai": {
+    "used": true,
+    "fallback": false,
+    "model": "gemini-1.5-flash-latest"
+  },
   "compare": { "...": "deterministic payload (same shape as /compare)" }
 }
 ```
+
+## 4) GET `/health`
+
+Simple API health check.

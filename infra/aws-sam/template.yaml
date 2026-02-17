@@ -30,6 +30,10 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type'"
       Tags:
         psipay: "true"
 
@@ -62,6 +66,12 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /recommendations
             Method: POST
+        RecommendationsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /recommendations
+            Method: GET
     Metadata:
       BuildMethod: esbuild
       BuildProperties:

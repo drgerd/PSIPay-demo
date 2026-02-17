@@ -82,8 +82,7 @@ echo "Building client..."
 echo "Writing runtime config into dist/config.json"
 cat > client/dist/config.json <<EOF
 {
-  "apiBaseUrl": "${API_BASE_URL}",
-  "useMocks": false
+  "apiBaseUrl": "${API_BASE_URL}"
 }
 EOF
 

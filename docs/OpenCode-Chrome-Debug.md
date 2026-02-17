@@ -22,8 +22,6 @@ cd client
 npm run dev
 ```
 
-Tip: add `?mocks=1` to the URL to run UI against MSW mocks.
-
 2) Ensure OpenCode is configured to load MCP from `mcp.json` in repo root.
 
 3) Use Chrome debug tools from OpenCode through the `chrome-devtools` MCP server.
@@ -31,4 +29,4 @@ Tip: add `?mocks=1` to the URL to run UI against MSW mocks.
 ## Notes
 
 - If your environment requires a custom Chrome path, pass server args/env in your local OpenCode MCP settings.
-- Keep this enabled for local UI debugging while mocks are active.
+- Use this to inspect API calls and UI rendering during local SAM development.

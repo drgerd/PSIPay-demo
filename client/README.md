@@ -2,7 +2,6 @@
 
 Runtime config:
 - `public/config.json` with `apiBaseUrl`
-- `public/config.json` with `useMocks` (`false` to call local/backend API)
 
 Local:
 - `npm install`
@@ -14,8 +13,7 @@ Local:
 
 ```json
 {
-  "apiBaseUrl": "http://127.0.0.1:3000",
-  "useMocks": false
+  "apiBaseUrl": "http://127.0.0.1:3000"
 }
 ```
 
@@ -27,10 +25,8 @@ npm run dev
 ```
 
 Notes:
-- In this mode, the client calls `/products`, `/compare`, `/recommendations` from the local Node API.
+- In this mode, the client calls `/products`, `/compare`, `/recommendations` from the local Lambda API.
 - Backend calls live BoE/ONS sources by default.
-- Optional: set `useMocks: true` only if you want browser-level MSW interception.
 
 Deploy to S3:
-- `scripts/provision-frontend.*` to create a website bucket (MVP public)
-- `scripts/deploy-frontend.*` to build and upload
+- `scripts/deploy.sh` (bash) or `scripts/deploy.ps1` (PowerShell)

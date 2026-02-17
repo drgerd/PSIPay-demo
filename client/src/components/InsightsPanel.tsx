@@ -25,6 +25,13 @@ export function InsightsPanel({ recommendation }: InsightsPanelProps) {
       <p style={{ margin: 0, color: "#555" }}>
         {recommendation.disclaimer} {recommendation.dataFreshnessNote}
       </p>
+      {recommendation.ai && (
+        <p style={{ marginTop: 8, marginBottom: 0, color: "#555" }}>
+          AI: {recommendation.ai.used ? "enabled" : "fallback"}
+          {recommendation.ai.model ? ` (${recommendation.ai.model})` : ""}
+          {recommendation.ai.reason ? ` - ${recommendation.ai.reason}` : ""}
+        </p>
+      )}
     </section>
   );
 }

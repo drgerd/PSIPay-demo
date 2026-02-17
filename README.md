@@ -30,8 +30,6 @@ bash scripts/dev-sam.sh
 
 2) Set `ONS_CPIH_VERSION` if you need a different ONS dataset version.
 
-Make sure `client/public/config.json` contains `"useMocks": false`.
-
 ## Deploy (High Level)
 
 All resources deploy via SAM (Lambda + API Gateway + DynamoDB cache + S3 website).
@@ -47,9 +45,3 @@ Docs:
 - Data pipeline rules: `docs/Skills-DataSources.md`
 - API shapes: `docs/API-Contracts.md`
 - OpenCode Chrome MCP debug: `docs/OpenCode-Chrome-Debug.md`
-- OpenCode Playwright validation: `docs/OpenCode-Playwright-Validation.md`
-
-## E2E Validation (Playwright)
-
-- Mock UI smoke: `npm run test:e2e:mock`
-- Local Node API integration: `npm run test:e2e:local-api`

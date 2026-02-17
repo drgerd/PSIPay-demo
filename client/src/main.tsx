@@ -5,10 +5,6 @@ import { getConfig } from "./api/config";
 
 async function bootstrap() {
   const config = await getConfig();
-  if (config.useMocks) {
-    const { worker } = await import("./mocks/browser");
-    await worker.start({ onUnhandledRequest: "bypass" });
-  }
 
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

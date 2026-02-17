@@ -7,7 +7,6 @@ This file provides guidance for agentic coding agents working in this repository
 Psipay is a UK financial products comparison platform with:
 - **Backend**: Node.js/TypeScript shared services running on AWS Lambda via SAM
 - **Frontend**: React/Vite SPA
-- **E2E Tests**: Playwright
 - **Data Sources**: Bank of England API, ONS CPIH data
 
 ## 1. Build, Lint, and Test Commands
@@ -24,30 +23,8 @@ npm run build
 # Run linters (backend + client)
 npm run lint
 
-# Install Playwright browsers
-npm run e2e:install
-```
-
-### Running Tests
-
-```bash
-# E2E tests with mock data (default)
-npm run test:e2e
-
-# E2E tests with local API
-npm run test:e2e:local-api
-
-# Run a single E2E test file
-npx playwright test e2e/dashboard.spec.js
-
-# Run a single test by name
-npx playwright test -g "test name pattern"
-
-# Run tests in headed mode
-npx playwright test --headed
-
-# Run with UI (interactive)
-npx playwright test --ui
+# Run tests (placeholder)
+npm test
 ```
 
 ### Backend Commands
@@ -247,7 +224,6 @@ psipay/
 │   │   ├── controllers/   # Route handlers
 │   │   ├── services/     # Business logic
 │   │   ├── data/         # External API clients (BoE, ONS)
-│   │   ├── fixtures/     # Mock data
 │   │   ├── types/        # TypeScript definitions
 │   │   └── services/     # Shared logic used by Lambda
 │   └── package.json
@@ -256,12 +232,10 @@ psipay/
 │   │   ├── api/          # HTTP client
 │   │   ├── components/   # React components
 │   │   ├── pages/        # Page components
-│   │   ├── mocks/        # MSW handlers
 │   │   └── types/        # TypeScript definitions
 │   ├── public/
 │   │   └── config.json   # Runtime config
 │   └── package.json
-├── e2e/                  # Playwright tests
 ├── infra/aws-sam/        # SAM template
 └── docs/                 # Documentation
 ```
@@ -285,15 +259,6 @@ AWS_REGION=eu-central-1
 ```json
 // client/public/config.json
 {
-  "apiBaseUrl": "http://127.0.0.1:3000",
-  "useMocks": false
+  "apiBaseUrl": "http://127.0.0.1:3000"
 }
 ```
-
-## 5. Testing Philosophy
-
-- E2E tests use Playwright with two configs:
-  - `playwright.config.js` - Mock API responses (default)
-  - `playwright.local-api.config.js` - Real local API
-- Tests verify user journeys, not implementation details
-- Each page/component should have corresponding E2E test coverage for key flows

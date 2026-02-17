@@ -36,7 +36,7 @@ try {
   npm install
   npm run build
   $configPath = Join-Path (Get-Location) "dist\config.json"
-  $config = "{`n  \"apiBaseUrl\": \"$apiBaseUrl\",`n  \"useMocks\": false`n}`n"
+  $config = "{`n  \"apiBaseUrl\": \"$apiBaseUrl\"`n}`n"
   Set-Content -Path $configPath -Value $config -Encoding ASCII
   aws s3 sync dist "s3://$BucketName" --region $Region --delete
 } finally {

@@ -12,9 +12,7 @@ Set (examples):
 ```
 ONS_CPIH_VERSION=66
 DEFAULT_HISTORY_MONTHS=12
-PORT=3000
-HOST=127.0.0.1
-GEMINI_API_KEY=... (only needed for later AI integration)
+GEMINI_API_KEY=... (required for AI recommendations)
 ```
 
 ## 2) Run backend (SAM Local)
@@ -30,7 +28,7 @@ bash scripts/dev-sam.sh
 The frontend reads `/config.json` at runtime:
 
 ```
-{ "apiBaseUrl": "http://127.0.0.1:3000", "useMocks": false }
+{ "apiBaseUrl": "http://127.0.0.1:3000" }
 ```
 
 For local dev, Vite serves a local `public/config.json`.

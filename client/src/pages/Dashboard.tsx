@@ -106,7 +106,8 @@ export function Dashboard({ config }: DashboardProps) {
       )) as RecommendationsResponse;
       setRecommendation(recRes);
     } catch (e) {
-      setError(String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(`Compare/Recommend failed: ${message}`);
     } finally {
       setSubmitting(false);
     }
@@ -129,7 +130,7 @@ export function Dashboard({ config }: DashboardProps) {
     <div style={{ fontFamily: "ui-sans-serif, system-ui", padding: 20, maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ margin: 0 }}>Psipay Dashboard</h1>
       <p style={{ marginTop: 8, color: "#444" }}>
-        API: <code>{config.apiBaseUrl}</code> | mocks: <code>{String(config.useMocks)}</code>
+        API: <code>{config.apiBaseUrl}</code>
       </p>
 
       {error && (
