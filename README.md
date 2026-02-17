@@ -107,8 +107,8 @@ Local-only (use `scripts/env.local` or your shell; do not commit secrets):
 
 - `GEMINI_API_KEY` (optional) enables AI explanations in `/recommendations`.
 - `GEMINI_MODEL` (optional) defaults to `gemini-flash-latest`.
-- `GEMINI_TIMEOUT_MS` (optional) defaults to `8000`.
-- `GEMINI_MAX_ATTEMPTS` (optional) defaults to `1` (max `2`).
+- `GEMINI_TIMEOUT_MS` (optional) defaults to `35000`.
+- `GEMINI_MAX_ATTEMPTS` (optional) defaults to `2` (max `2`).
 
 Provided by SAM/Lambda runtime (you do not need to set manually when deployed):
 

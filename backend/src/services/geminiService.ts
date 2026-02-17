@@ -8,10 +8,10 @@ function pickModel(): string {
 }
 
 function geminiTimeoutMs(): number {
-  const defaultTimeout = 20000;
+  const defaultTimeout = 35000;
   const parsed = Number.parseInt(String(process.env.GEMINI_TIMEOUT_MS || String(defaultTimeout)), 10);
   if (!Number.isFinite(parsed)) return defaultTimeout;
-  return Math.max(1000, Math.min(25000, parsed));
+  return Math.max(1000, Math.min(35000, parsed));
 }
 
 function geminiMaxAttempts(): number {

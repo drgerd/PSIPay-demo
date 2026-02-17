@@ -78,7 +78,7 @@ echo "Starting SAM local API on :${API_PORT}..."
 SAM_PARAMETER_OVERRIDES="DynamoDbEndpoint=http://dynamodb-local:8000"
 if [[ -n "${GEMINI_API_KEY:-}" ]]; then
   SAM_PARAMETER_OVERRIDES="${SAM_PARAMETER_OVERRIDES} GeminiApiKey=${GEMINI_API_KEY}"
-  export GEMINI_TIMEOUT_MS="${GEMINI_TIMEOUT_MS:-20000}"
+  export GEMINI_TIMEOUT_MS="${GEMINI_TIMEOUT_MS:-35000}"
   export GEMINI_MAX_ATTEMPTS="${GEMINI_MAX_ATTEMPTS:-2}"
   echo "[info] GEMINI_API_KEY detected for local SAM (length: ${#GEMINI_API_KEY})."
   echo "[info] Local Gemini settings: timeout=${GEMINI_TIMEOUT_MS}ms attempts=${GEMINI_MAX_ATTEMPTS}."
