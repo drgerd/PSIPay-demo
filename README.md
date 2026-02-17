@@ -295,6 +295,109 @@ Notes:
 - If Gemini is missing/slow/unavailable, the API returns a deterministic fallback.
 - `/health` is intentionally public; all other API routes require a Cognito JWT.
 
+## Leadership & Architecture
+
+### Trade-offs
+
+I optimized for a simple, deployable serverless shape: one API Gateway + one Lambda router (multiple routes) + DynamoDB TTL
+cache + S3 static site, all provisioned via SAM. This keeps cognitive load low and makes the reviewer workflow predictable
+(deploy once, exercise endpoints, delete stack).
+
+To keep the system explainable and safe, the ranking/selection is deterministic and the Gemini layer only produces
+narrative text over the deterministic outputs (and can fall back to deterministic text when Gemini is slow/unavailable).
+The trade-off is that AI does not “discover” better answers than the deterministic engine, but it avoids hallucinated
+numbers and keeps behavior stable for testing.
+
+The UI is intentionally minimal and functional (forms + charts + recommendation) and not product-grade visually. I
+prioritized correctness, deployability, and testability over polish (design system, accessibility pass, responsive
+refinements, and richer UX flows). This is sufficient for the assignment demo/user journey but would need investment
+for a real consumer-facing product.
+
+For demo safety, I added a minimal Cognito JWT gate plus API Gateway throttling. The trade-off is added setup steps
+(bootstrapping a demo user) and a basic login UX, but it prevents drive-by traffic from running up costs during an
+internet-exposed test.
+
+### Team Planning (3 devs, 2 weeks)
+
+Assumption: requirements and acceptance criteria were captured in “week 0” (before engineering start), so week 1 is
+execution rather than discovery. Delivery is organized as vertical slices (end-to-end thin features) to create a fast
+feedback loop with a working demo early, rather than building horizontal layers in isolation.
+
+Week 1 (vertical slices, incremental):
+- Slice 1: SAM deploy/destroy, `/health`, frontend boot, env/config plumbing.
+- Slice 2: Mortgages end-to-end (BoE fetch + cache + deterministic compare + chart + recommendation copy).
+- Slice 3: Savings end-to-end (BoE + ONS + cache + compare + chart + stale/error handling).
+- Slice 4: Credit cards end-to-end (deterministic scoring + UI form + recommendation; no irrelevant chart).
+- Slice 5: Auth + safety (Cognito authorizer, UI login, API throttling; keep `/health` public).
+
+Week 2 (hardening + quality):
+- Unit tests for deterministic logic, parsing/validation, and retry behavior; tighten TypeScript contracts.
+- Observability: structured logs, correlation IDs, and dashboards/alarms for throttles/errors/timeouts.
+- Performance polish (bundle splitting, caching effectiveness) and documentation completeness.
+
+Suggested ownership (with pairing to avoid silos):
+- Dev A (Backend/data): data clients, retries, caching, deterministic engines; pairs with Dev C on infra wiring.
+- Dev B (Frontend/UX): dashboard/forms/charts/login UX; pairs with Dev A to validate API contracts and error UX.
+- Dev C (Infra/DevEx): SAM template, throttling/auth, deploy automation, CloudWatch/alarms, README runbook.
+
+### Production Readiness
+
+Before production I would:
+- Secrets: move `GEMINI_API_KEY` to AWS Secrets Manager/SSM (not CloudFormation parameters), rotate keys, and apply
+  least-privilege IAM.
+- Edge/security: put CloudFront in front of S3 + API, enforce HTTPS, add security headers, consider WAF/bot controls,
+  and configure stricter CORS.
+- Observability: structured application logs (not only Lambda START/END), request IDs, CloudWatch dashboards/alarms,
+  and tracing (X-Ray/OpenTelemetry).
+- Reliability: explicit timeouts per upstream, better error classification, and clearer “stale served” metrics; consider
+  backoff jitter and circuit breakers.
+- Auth: real user lifecycle (no fixed demo user), MFA/password reset, token refresh handling, and safer token storage.
+- CI/CD: automated pipeline, `sam validate --lint`, unit tests, security scanning, and environment promotion.
+- Data quality: schema checks for upstream payloads, stricter input validation, and clearer user-facing assumptions.
+
+### Infrastructure Cost Estimate (Production Scale)
+
+This estimate is illustrative and should be recalculated using your region’s current AWS pricing. It assumes:
+- API Gateway REST API
+- Lambda 512 MB average 300 ms
+- DynamoDB on-demand (read-through cache)
+- Modest CloudWatch logging
+- S3 static website (no CloudFront)
+
+Example usage assumptions:
+- 1,000,000 API requests / month
+- DynamoDB: ~1,000,000 reads + 200,000 writes / month
+- CloudWatch Logs: ~1 GB ingested / month
+- Cognito: 10,000 MAU
+
+Rough monthly costs (order-of-magnitude; pricing varies by region/account):
+- API Gateway (REST): ~ \$3.50 per 1M requests => ~\$3.50
+- Lambda requests: ~ \$0.20 per 1M requests => ~\$0.20
+- Lambda compute: 1M * 0.3s * 0.5 GB = 150,000 GB-s
+  - using ~$0.0000167/GB-s as a rough reference => ~\$2.50
+- DynamoDB on-demand: reads (~\$0.25/1M) + writes (~\$1.25/1M)
+  - 1.0M reads => ~\$0.25
+  - 0.2M writes => ~\$0.25
+- CloudWatch Logs ingestion: ~\$0.50/GB => ~\$0.50
+- S3 storage/requests at this scale: typically cents to low dollars
+
+Subtotal (excluding Cognito): roughly 7\$ – 10\$ / month under these assumptions.
+
+Cognito cost depends on MAU pricing in `eu-central-1` and your account’s free tier usage; for an accurate number, plug
+MAU into the AWS pricing calculator for Cognito User Pools.
+
+### If I Had More Time
+
+Next improvements would be:
+- More data sources (e.g., FCA register) and richer “product” modeling beyond rate series (fees, eligibility,
+  constraints).
+- A more realistic credit-card model (intro APR periods, balance transfer fees, representative APR ranges) and scenario
+  saving/sharing.
+- Better UX: guided questions per scenario, improved mobile layout, code-split charts to reduce bundle size, and
+  accessibility improvements.
+- Cost controls: AWS Budgets with alerts, more granular throttling per route, and caching metrics to quantify upstream
+  savings.
+
 ## Notes
 
 - `scripts/env.local` is for local-only values and is not committed.
