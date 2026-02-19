@@ -92,7 +92,7 @@ export function Dashboard({ config, authToken, onLogout, onUnauthorized }: Dashb
         <p style={{ margin: "8px 0", color: "#444" }}>
           If the app shows AI fallback (for example, free-tier quota reached), you can paste your own Gemini API key for
           this browser session. It is sent only with recommendation requests and is not stored on the server. Model:
-          Gemini 2.0 Flash.
+          Gemini 2.5 Flash-Lite.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <input

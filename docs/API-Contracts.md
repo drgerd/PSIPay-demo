@@ -148,7 +148,7 @@ Response: deterministic compare output + AI payload (no debug data returned).
   "ai": {
     "used": true,
     "fallback": false,
-    "model": "gemini-2.0-flash"
+    "model": "gemini-2.5-flash-lite"
   },
   "compare": { "...": "deterministic payload (same shape as /compare)" }
 }

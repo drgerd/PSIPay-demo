@@ -39,7 +39,7 @@ Parameters:
 Globals:
   Function:
     Runtime: nodejs20.x
-    Timeout: 30
+    Timeout: 40
     MemorySize: 512
     Environment:
       Variables:

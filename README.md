@@ -106,9 +106,8 @@ npm -w client run test
 Local-only (use `scripts/env.local` or your shell; do not commit secrets):
 
 - `GEMINI_API_KEY` (optional) enables AI explanations in `/recommendations`.
-- `GEMINI_MODEL` (optional) defaults to `gemini-2.0-flash`.
-- `GEMINI_TIMEOUT_MS` (optional) defaults to `20000` in deployed Lambda; local `dev-sam.sh` sets `35000`.
-- `GEMINI_MAX_ATTEMPTS` (optional) defaults to `1` in deployed Lambda and `2` in local SAM (max `2`).
+- `GEMINI_MODEL` (optional) defaults to `gemini-2.5-flash-lite`.
+- `GEMINI_TIMEOUT_MS` (optional) defaults to `40000` in both deployed Lambda and local SAM.
 
 Provided by SAM/Lambda runtime (you do not need to set manually when deployed):
 
@@ -305,7 +304,7 @@ For demo/reviewer scenarios, the UI includes an optional field **"Demo AI key (o
 - Use it when the server-side Gemini key hits free-tier quota or is unavailable.
 - The entered key is sent only with `/recommendations` requests via `X-Gemini-Api-Key`.
 - The key is stored only in browser session storage and is not persisted server-side.
-- The app uses **Gemini 2.0 Flash** (`gemini-2.0-flash`) for AI explanations.
+- The app uses **Gemini 2.5 Flash-Lite** (`gemini-2.5-flash-lite`) for AI explanations.
 
 ### Get Cognito IdToken For CLI Tests
 
